@@ -1,0 +1,11 @@
+{
+  "name": "mahjong-game",
+  "version": "1.0.0",
+  "description": "4人麻雀ゲーム（JavaScript + Phaser3）",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve ."
+  },
+  "license": "MIT"
+}
