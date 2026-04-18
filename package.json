@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npx serve .",
     "dev": "npx serve .",
-    "test": "node tests/test-hand.js && node tests/test-game-flow.js"
+    "test": "node tests/test-hand.js && node tests/test-game-flow.js && node tests/test-meld.js"
   },
   "license": "MIT"
 }

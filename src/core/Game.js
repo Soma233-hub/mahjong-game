@@ -1,53 +1,55 @@
 import { Wall } from './Wall.js';
 import { Player } from './Player.js';
+import { Meld, MELD_TYPE } from './Meld.js';
 import { AILevel3 } from '../ai/AILevel3.js';
 
 export const GAME_STATE = Object.freeze({
-    INIT:        'init',
-    DEAL:        'deal',
-    DRAW:        'draw',         // プレイヤーがツモ
-    PLAYER_ACTION: 'player_action', // 打牌・リーチ・暗槓
-    CLAIM:       'claim',        // 他家の鳴き・ロン受付
-    MELD_ACTION: 'meld_action',  // 鳴き後の打牌
-    KAN_DRAW:    'kan_draw',     // 嶺上ツモ
-    ROUND_END:   'round_end',    // 局終了
-    GAME_END:    'game_end',     // 半荘終了
+    INIT:           'init',
+    DEAL:           'deal',
+    DRAW:           'draw',
+    PLAYER_ACTION:  'player_action',
+    CLAIM:          'claim',
+    MELD_ACTION:    'meld_action',
+    KAN_DRAW:       'kan_draw',
+    ROUND_END:      'round_end',
+    GAME_END:       'game_end',
 });
 
 export const ROUND_RESULT = Object.freeze({
-    TSUMO:     'tsumo',    // ツモ和了
-    RON:       'ron',      // ロン和了
-    RYUUKYOKU: 'ryuukyoku', // 流局
-    CHOMBO:    'chombo',   // チョンボ
+    TSUMO:     'tsumo',
+    RON:       'ron',
+    RYUUKYOKU: 'ryuukyoku',
+    CHOMBO:    'chombo',
 });
 
 export class Game {
     constructor() {
         this.wall    = new Wall();
-        // プレイヤー0が人間、1-3がAI
         this.players = [
             new Player(0, true),
             new Player(1, false),
             new Player(2, false),
             new Player(3, false),
         ];
-        // AIインスタンスを非人間プレイヤーにセット
         for (let i = 1; i <= 3; i++) {
             this.players[i].ai = new AILevel3(i);
         }
 
-        this.state       = GAME_STATE.INIT;
-        this.round       = 0;    // 局番号（0=東1局, 3=東4局）
-        this.dealerIndex = 0;    // 親のプレイヤーインデックス
-        this.turn        = 0;    // ターンカウンタ（リーチ一発判定用）
-        this.currentIndex = 0;   // 現在手番のプレイヤーインデックス
-        this.honba       = 0;    // 本場数
-        this.kyotaku     = 0;    // 供託リーチ棒（1本=1000点）
+        this.state            = GAME_STATE.INIT;
+        this.round            = 0;
+        this.dealerIndex      = 0;
+        this.turn             = 0;
+        this.currentIndex     = 0;
+        this.honba            = 0;
+        this.kyotaku          = 0;
 
-        this.lastDiscard     = null; // 最後に捨てられた牌
-        this.lastDiscardPlayer = -1; // 捨てたプレイヤーのインデックス
+        this.lastDiscard      = null;
+        this.lastDiscardPlayer = -1;
 
-        this.eventListeners = {}; // イベントリスナー（UIとの橋渡し）
+        // _processClaims で使う一時コンテキスト
+        this._claimContext    = null;
+
+        this.eventListeners   = {};
     }
 
     // --- ゲーム開始・局管理 ---
@@ -75,14 +77,12 @@ export class Game {
             p.isMenzen    = true;
         });
 
-        // 配牌
         for (let i = 0; i < 4; i++) {
             const tiles = this.wall.deal(13);
             tiles.forEach(t => this.players[i].hand.add(t));
             this.players[i].hand.sort();
         }
 
-        // 親が1枚ツモ
         this.currentIndex = this.dealerIndex;
         this.turn = 0;
         this.state = GAME_STATE.DRAW;
@@ -103,7 +103,22 @@ export class Game {
         this.state = GAME_STATE.PLAYER_ACTION;
         this.emit('draw', { playerIndex: this.currentIndex, tile });
 
-        // AIプレイヤーは自動で行動する
+        if (!player.isHuman && player.ai) {
+            this._processAIAction(player);
+        }
+    }
+
+    _processKanDraw() {
+        const player = this.players[this.currentIndex];
+        const tile = this.wall.drawRinshan();
+        if (!tile) {
+            this._processRyuukyoku();
+            return;
+        }
+        player.draw(tile);
+        this.state = GAME_STATE.PLAYER_ACTION;
+        this.emit('kanDraw', { playerIndex: this.currentIndex, tile });
+
         if (!player.isHuman && player.ai) {
             this._processAIAction(player);
         }
@@ -114,48 +129,317 @@ export class Game {
         if (action.action === 'discard') {
             this.processDiscard(player.index, action.index);
         }
-        // TODO: 第3週でリーチ・暗槓を追加
     }
 
-    // プレイヤーが打牌する（人間からの入力またはAIの選択）
+    // 打牌（PLAYER_ACTION または MELD_ACTION 両方で受け付ける）
     processDiscard(playerIndex, tileIndex) {
-        if (this.state !== GAME_STATE.PLAYER_ACTION) return;
+        if (this.state !== GAME_STATE.PLAYER_ACTION &&
+            this.state !== GAME_STATE.MELD_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
 
         const player = this.players[playerIndex];
         const tile = player.discard(tileIndex);
-        this.lastDiscard      = tile;
+        this.lastDiscard       = tile;
         this.lastDiscardPlayer = playerIndex;
+
+        // リーチ中でなければフリテン再チェック
+        if (!player.isRiichi) player.checkFuriten();
 
         this.state = GAME_STATE.CLAIM;
         this.emit('discard', { playerIndex, tile });
 
-        // 鳴き・ロン確認（TODO: 第3週・第4週で実装）
         this._processClaims();
     }
 
-    // リーチ宣言
+    // リーチ宣言（discard前）
     processRiichi(playerIndex, tileIndex) {
         const player = this.players[playerIndex];
-        const isDouble = this.turn <= 4; // 第1ツモ以内でダブルリーチ
+        const isDouble = this.turn <= 4;
         player.declareRiichi(this.turn, isDouble);
         this.processDiscard(playerIndex, tileIndex);
     }
 
-    // 暗槓
-    processAnkan(playerIndex, tileId) {
-        // TODO: 第3週で実装
+    // --- 副露処理 ---
+
+    // 他家の捨て牌に対してロン可能か（構造的チェック、役判定は第4週）
+    _canRon(player, tile) {
+        if (player.isFuriten || player.isTemporaryFuriten) return false;
+        return player.hand.getWaitingTileIds().includes(tile.id);
     }
 
-    // 加槓
-    processKakan(playerIndex, meldIndex) {
-        // TODO: 第3週で実装
+    _canPon(player, tile) {
+        let count = 0;
+        for (const t of player.hand.tiles) {
+            if (t.id === tile.id && ++count >= 2) return true;
+        }
+        return false;
+    }
+
+    _canMinkan(player, tile) {
+        let count = 0;
+        for (const t of player.hand.tiles) {
+            if (t.id === tile.id && ++count >= 3) return true;
+        }
+        return false;
+    }
+
+    _canChi(player, tile) {
+        if (tile.isHonor()) return false;
+        return player.hand.findChiOptions(tile).length > 0;
+    }
+
+    _getClaimOptions(player, tile, discarderIdx) {
+        const canRon = this._canRon(player, tile);
+        if (player.isRiichi) {
+            return { canRon, canPon: false, canMinkan: false, canChi: false };
+        }
+        const canPon    = this._canPon(player, tile);
+        const canMinkan = this._canMinkan(player, tile);
+        const isLeft    = (discarderIdx + 1) % 4 === player.index;
+        const canChi    = isLeft && this._canChi(player, tile);
+        return { canRon, canPon, canMinkan, canChi };
     }
 
     _processClaims() {
-        // TODO: 第3週（ポン・チー・カン）・第4週（ロン）で実装
-        // 暫定: スキップして次ツモへ
+        const discarderIdx = this.lastDiscardPlayer;
+        const tile = this.lastDiscard;
+
+        // 各プレイヤーの請求選択肢を収集
+        const allOptions = {};
+        for (let i = 0; i < 4; i++) {
+            if (i === discarderIdx) continue;
+            const opts = this._getClaimOptions(this.players[i], tile, discarderIdx);
+            if (opts.canRon || opts.canPon || opts.canMinkan || opts.canChi) {
+                allOptions[i] = opts;
+            }
+        }
+
+        if (Object.keys(allOptions).length === 0) {
+            this._nextTurn();
+            return;
+        }
+
+        // AI の決定を即時収集
+        const decisions = {};
+        let waitForHuman = false;
+
+        for (const [idxStr, opts] of Object.entries(allOptions)) {
+            const i = Number(idxStr);
+            const player = this.players[i];
+            if (player.isHuman) {
+                waitForHuman = true;
+                decisions[i] = null; // UI から selectClaim() で設定される
+            } else {
+                decisions[i] = player.ai.selectClaimAction(player, this, tile, opts);
+            }
+        }
+
+        this._claimContext = { decisions, allOptions, discarderIdx, tile };
+
+        if (waitForHuman) {
+            const humanIdx = this.players.findIndex(p => p.isHuman);
+            this.emit('claimNeeded', { playerIndex: humanIdx, options: allOptions[humanIdx] || {} });
+        } else {
+            this._resolveClaimDecisions();
+        }
+    }
+
+    // 人間プレイヤーの宣言（UI から呼ぶ）
+    selectClaim(playerIndex, decision) {
+        if (!this._claimContext) return;
+        this._claimContext.decisions[playerIndex] = decision;
+        // 全員の決定が揃ったら解決
+        const allDone = Object.values(this._claimContext.decisions).every(d => d !== null);
+        if (allDone) this._resolveClaimDecisions();
+    }
+
+    _resolveClaimDecisions() {
+        const { decisions, allOptions } = this._claimContext;
+        this._claimContext = null;
+
+        // ロンを見逃したプレイヤーに一時フリテン付与
+        for (const [idxStr, opts] of Object.entries(allOptions)) {
+            const i = Number(idxStr);
+            const dec = decisions[i];
+            if (opts.canRon && (!dec || dec.action !== 'ron')) {
+                const player = this.players[i];
+                if (player.isRiichi) {
+                    player.isFuriten = true;
+                } else {
+                    player.isTemporaryFuriten = true;
+                }
+            }
+        }
+
+        // 優先度1: ロン（複数同時OK）
+        const rons = Object.entries(decisions)
+            .filter(([, d]) => d && d.action === 'ron')
+            .map(([idx]) => Number(idx));
+        if (rons.length > 0) {
+            rons.forEach(idx => this.processRon(idx, this.lastDiscardPlayer));
+            return;
+        }
+
+        // 優先度2: 明槓 > ポン（同プレイヤーには両立しない）
+        for (const [idxStr, dec] of Object.entries(decisions)) {
+            if (!dec || dec.action === 'pass') continue;
+            const i = Number(idxStr);
+            if (dec.action === 'minkan') { this.processMinkan(i); return; }
+            if (dec.action === 'pon')    { this.processPon(i); return; }
+        }
+
+        // 優先度3: チー
+        for (const [idxStr, dec] of Object.entries(decisions)) {
+            if (!dec || dec.action === 'pass') continue;
+            const i = Number(idxStr);
+            if (dec.action === 'chi') { this.processChi(i, dec.tileIndices); return; }
+        }
+
+        // 全員パス
         this._nextTurn();
+    }
+
+    // ポン実行
+    processPon(playerIndex) {
+        const player = this.players[playerIndex];
+        const tile = this.lastDiscard;
+        const indices = player.hand.findPonIndices(tile);
+        if (!indices) return;
+
+        const meldTiles = [
+            player.hand.tiles[indices[0]],
+            player.hand.tiles[indices[1]],
+            tile,
+        ];
+        const meld = new Meld(MELD_TYPE.PON, meldTiles, this.lastDiscardPlayer, tile);
+        player.hand.addMeld(meld, indices);
+        player.isMenzen = false;
+
+        this.currentIndex = playerIndex;
+        this.state = GAME_STATE.MELD_ACTION;
+        this.emit('pon', { playerIndex, tile });
+
+        if (!player.isHuman && player.ai) {
+            const idx = player.ai.selectDiscard(player, this);
+            this.processDiscard(playerIndex, idx);
+        }
+    }
+
+    // チー実行（tileIndices: 手牌の2インデックス）
+    processChi(playerIndex, tileIndices) {
+        const player = this.players[playerIndex];
+        const tile = this.lastDiscard;
+        if (!tileIndices || tileIndices.length < 2) return;
+
+        const [ia, ib] = tileIndices;
+        const meldTiles = [
+            player.hand.tiles[ia],
+            player.hand.tiles[ib],
+            tile,
+        ].sort((a, b) => a.id - b.id);
+
+        const meld = new Meld(MELD_TYPE.CHI, meldTiles, this.lastDiscardPlayer, tile);
+        player.hand.addMeld(meld, [ia, ib]);
+        player.isMenzen = false;
+
+        this.currentIndex = playerIndex;
+        this.state = GAME_STATE.MELD_ACTION;
+        this.emit('chi', { playerIndex, tile });
+
+        if (!player.isHuman && player.ai) {
+            const idx = player.ai.selectDiscard(player, this);
+            this.processDiscard(playerIndex, idx);
+        }
+    }
+
+    // 明槓実行（他家の捨て牌を槓）
+    processMinkan(playerIndex) {
+        const player = this.players[playerIndex];
+        const tile = this.lastDiscard;
+        const indices = player.hand.findMinkanIndices(tile);
+        if (!indices) return;
+
+        const meldTiles = [
+            player.hand.tiles[indices[0]],
+            player.hand.tiles[indices[1]],
+            player.hand.tiles[indices[2]],
+            tile,
+        ];
+        const meld = new Meld(MELD_TYPE.MINKAN, meldTiles, this.lastDiscardPlayer, tile);
+        player.hand.addMeld(meld, indices);
+        player.isMenzen = false;
+
+        this.currentIndex = playerIndex;
+        this.wall.flipKanDora();
+        this.state = GAME_STATE.KAN_DRAW;
+        this.emit('minkan', { playerIndex, tile });
+        this._processKanDraw();
+    }
+
+    // 暗槓実行（自摸牌で槓）
+    processAnkan(playerIndex, tileId) {
+        if (this.state !== GAME_STATE.PLAYER_ACTION) return;
+        if (playerIndex !== this.currentIndex) return;
+
+        const player = this.players[playerIndex];
+        const ids = player.hand.findAnkanIds();
+        if (!ids.includes(tileId)) return;
+
+        const indices = [];
+        for (let i = 0; i < player.hand.tiles.length; i++) {
+            if (player.hand.tiles[i].id === tileId) indices.push(i);
+            if (indices.length === 4) break;
+        }
+
+        const meldTiles = indices.map(i => player.hand.tiles[i]);
+        const meld = new Meld(MELD_TYPE.ANKAN, meldTiles, -1, null);
+        player.hand.addMeld(meld, indices);
+
+        this.wall.flipKanDora();
+        this.state = GAME_STATE.KAN_DRAW;
+        this.emit('ankan', { playerIndex, tileId });
+        this._processKanDraw();
+    }
+
+    // 加槓実行（ポン済み牌に追加）
+    processKakan(playerIndex, meldIndex) {
+        if (this.state !== GAME_STATE.PLAYER_ACTION) return;
+        if (playerIndex !== this.currentIndex) return;
+
+        const player = this.players[playerIndex];
+        const opts = player.hand.findKakanOptions();
+        const opt = opts.find(o => o.meldIndex === meldIndex);
+        if (!opt) return;
+
+        const addedTile = player.hand.tiles[opt.tileIndex];
+        player.hand.tiles.splice(opt.tileIndex, 1);
+
+        const ponMeld = player.hand.melds[meldIndex];
+        const kakanMeld = new Meld(
+            MELD_TYPE.KAKAN,
+            [...ponMeld.tiles, addedTile],
+            ponMeld.fromPlayer,
+            ponMeld.claimedTile,
+        );
+        player.hand.melds[meldIndex] = kakanMeld;
+
+        this.wall.flipKanDora();
+        this.state = GAME_STATE.KAN_DRAW;
+        this.emit('kakan', { playerIndex, meldIndex, tile: addedTile });
+        this._processKanDraw();
+    }
+
+    // 和了（ロン）- 構造確認のみ。役計算は第4週
+    processRon(winnerIndex, discarderIndex) {
+        this.state = GAME_STATE.ROUND_END;
+        this.emit('roundEnd', { result: ROUND_RESULT.RON, winnerIndex, discarderIndex });
+    }
+
+    // 和了（ツモ）- 役計算は第4週
+    processWin(winnerIndex, ronDiscarderIndex = -1) {
+        this.state = GAME_STATE.ROUND_END;
+        const result = ronDiscarderIndex < 0 ? ROUND_RESULT.TSUMO : ROUND_RESULT.RON;
+        this.emit('roundEnd', { result, winnerIndex });
     }
 
     _nextTurn() {
@@ -164,18 +448,9 @@ export class Game {
         this._processDraw();
     }
 
-    // 流局処理
     _processRyuukyoku() {
-        // TODO: テンパイ/ノーテン精算
         this.state = GAME_STATE.ROUND_END;
-        this.emit('roundEnd', { result: 'ryuukyoku' });
-    }
-
-    // 和了処理（ツモ/ロン）
-    processWin(winnerIndex, ronDiscarderIndex = -1) {
-        // TODO: 第4週（役判定）・第5週（点数計算）で実装
-        this.state = GAME_STATE.ROUND_END;
-        this.emit('roundEnd', { result: ronDiscarderIndex < 0 ? 'tsumo' : 'ron', winnerIndex });
+        this.emit('roundEnd', { result: ROUND_RESULT.RYUUKYOKU });
     }
 
     // --- 局回し ---
@@ -187,7 +462,6 @@ export class Game {
         } else {
             this.honba++;
         }
-
         if (this.round >= 4) {
             this._checkGameEnd();
             return;
@@ -196,7 +470,6 @@ export class Game {
     }
 
     _checkGameEnd() {
-        // 東風戦: 4局終了でゲーム終了（トビ・オーラス延長は TODO）
         this.state = GAME_STATE.GAME_END;
         this.emit('gameEnd', { players: this.players });
     }

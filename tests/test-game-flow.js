@@ -83,6 +83,8 @@ console.log('\n[AI設定]');
 console.log('\n[processDiscard + AIターン連鎖]');
 {
     const g = new Game();
+    // AI打牌後に人間へclaimNeededが発火した場合は自動パス（テスト用）
+    g.on('claimNeeded', ({ playerIndex }) => g.selectClaim(playerIndex, { action: 'pass' }));
     g.startGame();
     // Player0のターン(14枚)
     assertEqual(g.currentIndex, 0, '初回Player0のターン');

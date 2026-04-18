@@ -23,10 +23,11 @@ export class AILevel3 extends AIBase {
 
     // --- 鳴き選択 ---
 
-    selectClaimAction(player, game, discardTile) {
-        // TODO: 第6週で実装
-        // 1. ロン可能なら和了
-        // 2. ポン/チーが向聴数改善 + 役見込みあれば鳴く
+    // 他家の捨て牌に対するアクション選択
+    selectClaimAction(player, game, discardTile, opts) {
+        // ロン可能な場合は常に和了（役チェックは第4週で追加予定）
+        if (opts && opts.canRon) return { action: 'ron' };
+        // ポン/チー/明槓は第6週で実装（今は常にパス）
         return { action: 'pass' };
     }
 

@@ -123,6 +123,75 @@ export class Hand {
         return best;
     }
 
+    // ポン候補インデックス（同一牌2枚） → [i, j] または null
+    findPonIndices(tile) {
+        const result = [];
+        for (let i = 0; i < this.tiles.length; i++) {
+            if (this.tiles[i].id === tile.id) result.push(i);
+            if (result.length === 2) return result;
+        }
+        return null;
+    }
+
+    // チー候補インデックスペア配列 → [[ia, ib], ...] (tile+tiles[ia]+tiles[ib] が順子)
+    findChiOptions(tile) {
+        if (tile.id >= 27) return [];
+        const id = tile.id;
+        const suitBase = Math.floor(id / 9) * 9;
+        const rank = id - suitBase;
+
+        const options = [];
+        const patterns = [
+            [rank + 1, rank + 2],
+            [rank - 1, rank + 1],
+            [rank - 2, rank - 1],
+        ];
+
+        for (const [ra, rb] of patterns) {
+            if (ra < 0 || ra > 8 || rb < 0 || rb > 8) continue;
+            const idA = suitBase + ra;
+            const idB = suitBase + rb;
+            let ia = -1, ib = -1;
+            for (let i = 0; i < this.tiles.length; i++) {
+                if (this.tiles[i].id === idA && ia < 0) { ia = i; continue; }
+                if (this.tiles[i].id === idB && ib < 0 && i !== ia) { ib = i; }
+            }
+            if (ia >= 0 && ib >= 0) options.push([ia, ib]);
+        }
+        return options;
+    }
+
+    // 明槓候補インデックス（同一牌3枚） → [i, j, k] または null
+    findMinkanIndices(tile) {
+        const result = [];
+        for (let i = 0; i < this.tiles.length; i++) {
+            if (this.tiles[i].id === tile.id) result.push(i);
+            if (result.length === 3) return result;
+        }
+        return null;
+    }
+
+    // 暗槓可能な牌IDリスト（手牌に4枚ある牌）
+    findAnkanIds() {
+        const counts = {};
+        this.tiles.forEach(t => { counts[t.id] = (counts[t.id] || 0) + 1; });
+        return Object.entries(counts)
+            .filter(([, c]) => c >= 4)
+            .map(([id]) => Number(id));
+    }
+
+    // 加槓可能オプション: [{meldIndex, tileIndex}, ...]
+    findKakanOptions() {
+        const opts = [];
+        this.melds.forEach((meld, mi) => {
+            if (meld.type !== 'pon') return;
+            const ponId = meld.tiles[0].id;
+            const ti = this.tiles.findIndex(t => t.id === ponId);
+            if (ti >= 0) opts.push({ meldIndex: mi, tileIndex: ti });
+        });
+        return opts;
+    }
+
     _chiitoiShanten() {
         const c = this._tileCounts();
         const pairs = c.filter(v => v >= 2).length;
