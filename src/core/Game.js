@@ -1,5 +1,6 @@
 import { Wall } from './Wall.js';
 import { Player } from './Player.js';
+import { AILevel3 } from '../ai/AILevel3.js';
 
 export const GAME_STATE = Object.freeze({
     INIT:        'init',
@@ -30,6 +31,10 @@ export class Game {
             new Player(2, false),
             new Player(3, false),
         ];
+        // AIインスタンスを非人間プレイヤーにセット
+        for (let i = 1; i <= 3; i++) {
+            this.players[i].ai = new AILevel3(i);
+        }
 
         this.state       = GAME_STATE.INIT;
         this.round       = 0;    // 局番号（0=東1局, 3=東4局）
@@ -97,6 +102,19 @@ export class Game {
         this.turn++;
         this.state = GAME_STATE.PLAYER_ACTION;
         this.emit('draw', { playerIndex: this.currentIndex, tile });
+
+        // AIプレイヤーは自動で行動する
+        if (!player.isHuman && player.ai) {
+            this._processAIAction(player);
+        }
+    }
+
+    _processAIAction(player) {
+        const action = player.ai.selectDrawAction(player, this);
+        if (action.action === 'discard') {
+            this.processDiscard(player.index, action.index);
+        }
+        // TODO: 第3週でリーチ・暗槓を追加
     }
 
     // プレイヤーが打牌する（人間からの入力またはAIの選択）

@@ -9,15 +9,15 @@
 
 | 週 | フェーズ | 内容 | 状態 |
 |---|---|---|---|
-| 第1週 | 設計 | 全体設計・クラス定義・プロジェクト構造 | 🔄 進行中 |
-| 第2週 | 牌管理 | 牌管理・山・手牌・ツモ・捨て牌実装 | ⬜ 未着手 |
+| 第1週 | 設計 | 全体設計・クラス定義・プロジェクト構造 | ✅ 完了 |
+| 第2週 | 牌管理 | 牌管理・山・手牌・ツモ・捨て牌実装 | ✅ 完了 |
 | 第3週 | 副露 | ポン・チー・暗槓・明槓・加槓実装 | ⬜ 未着手 |
 | 第4週 | 役判定 | 全役対応の役判定ロジック実装 | ⬜ 未着手 |
 | 第5週 | 点数・ドラ | 点数計算・表/裏/カン/赤ドラ処理 | ⬜ 未着手 |
 | 第6週 | GUI・仕上げ | GUI実装・Lv.3 AI・デバッグ・完成 | ⬜ 未着手 |
 
 ## 現在のフェーズ
-**第1週 - 全体設計（進行中）**
+**第3週 - 副露処理（未着手）**
 
 ## 完了タスク
 
@@ -36,38 +36,55 @@
 - [x] AIBase クラス定義（抽象インタフェース）
 - [x] AILevel3 スケルトン（有効牌ベース選択・守備判断骨格）
 
-### 第1週 残タスク
-- [ ] Hand._normalShanten のアルゴリズム精度検証
-- [ ] Game._processClaims の実装（第3週へ）
+### 第2週
+- [x] Hand._normalShanten の精度検証（14テストケース全通過）
+- [x] AILevel3.selectDiscard を有効牌枚数ベースに更新（他家リーチ時は安全牌優先）
+- [x] Game.js に AILevel3 を接続（非人間プレイヤーの自動打牌）
+- [x] Game._processAIAction 実装（ツモ後にAIが自動でselectDrawActionを呼ぶ）
+- [x] Player.checkFuriten 完全実装（待ち牌と捨て牌の照合）
+- [x] tests/test-hand.js 作成（向聴数・有効牌・待ち牌テスト）
+- [x] tests/test-game-flow.js 作成（ゲームフロー統合テスト）
+- [x] package.json に "test" スクリプト追加（npm test で全テスト実行）
+- [x] 全41テスト通過確認
 
-## 次回作業内容（第2週）
-- ツモ・捨て牌の完全な流れをテスト
-- Hand.getShantenNumber の単体テスト（具体的な手牌で検証）
-- Game のターン管理を AI と接続
-- Player.checkFuriten の完全実装
+## 第2週 品質チェックリスト
+- [x] 単体テストで主要ロジックが正常動作している（41/41通過）
+- [x] コンソールエラーがない
+- [x] 前フェーズの既知バグが解消されている（Hand._normalShanten 検証済み）
+
+## 次回作業内容（第3週）
+- _processClaims の実装（ポン・チー・明槓・ロン受付）
+- processAnkan / processKakan の実装
+- Meld を使った副露確定ロジック（Hand.addMeld）
+- 副露後のフリテン更新（他家の捨て牌ロン見逃し）
+- Player.isMenzen フラグの副露時更新
+- 副露テスト（tests/test-meld.js）
 
 ## ファイル構造
 ```
 mahjong-game/
 ├── index.html
-├── package.json
+├── package.json          ← "test" スクリプト追加
 ├── PROGRESS.md
+├── tests/
+│   ├── test-hand.js      ✅ 14テスト
+│   └── test-game-flow.js ✅ 27テスト
 └── src/
     ├── main.js
     ├── core/
     │   ├── Tile.js      ✅ 完全実装
     │   ├── Wall.js      ✅ 完全実装
-    │   ├── Hand.js      ✅ 向聴数含む実装
+    │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
     │   ├── Meld.js      ✅ 定義完了
-    │   ├── Player.js    ✅ 定義完了
-    │   └── Game.js      ✅ 骨格完了
+    │   ├── Player.js    ✅ checkFuriten 完全実装
+    │   └── Game.js      ✅ AI接続・ターン管理完成
     ├── logic/
     │   ├── Yaku.js      🔄 スケルトン（第4週実装予定）
     │   ├── Score.js     🔄 スケルトン（第5週実装予定）
     │   └── Dora.js      ✅ 完全実装
     ├── ai/
     │   ├── AIBase.js    ✅ 定義完了
-    │   └── AILevel3.js  🔄 スケルトン（第6週実装予定）
+    │   └── AILevel3.js  🔄 有効牌ベース打牌・安全牌選択 動作中
     └── scenes/
         ├── BootScene.js    ✅
         ├── GameScene.js    🔄 スタブ（第6週実装予定）

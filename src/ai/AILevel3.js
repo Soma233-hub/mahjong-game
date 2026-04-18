@@ -14,11 +14,11 @@ export class AILevel3 extends AIBase {
     // --- 打牌選択 ---
 
     selectDiscard(player, game) {
-        // TODO: 第6週で実装
-        // 1. 守備が必要か判断（他家がリーチ中）
-        // 2. 必要なら安全牌を返す
-        // 3. 不要なら有効牌枚数最大の形になる牌を捨てる
-        return this._randomDiscard(player);
+        const opponents = game.players.filter(p => p.index !== player.index && p.isRiichi);
+        if (opponents.length > 0) {
+            return this._selectSafeTile(player, game);
+        }
+        return this._selectByEffectiveTiles(player);
     }
 
     // --- 鳴き選択 ---
