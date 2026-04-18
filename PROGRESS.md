@@ -11,13 +11,13 @@
 |---|---|---|---|
 | 第1週 | 設計 | 全体設計・クラス定義・プロジェクト構造 | ✅ 完了 |
 | 第2週 | 牌管理 | 牌管理・山・手牌・ツモ・捨て牌実装 | ✅ 完了 |
-| 第3週 | 副露 | ポン・チー・暗槓・明槓・加槓実装 | ⬜ 未着手 |
+| 第3週 | 副露 | ポン・チー・暗槓・明槓・加槓実装 | ✅ 完了 |
 | 第4週 | 役判定 | 全役対応の役判定ロジック実装 | ⬜ 未着手 |
 | 第5週 | 点数・ドラ | 点数計算・表/裏/カン/赤ドラ処理 | ⬜ 未着手 |
 | 第6週 | GUI・仕上げ | GUI実装・Lv.3 AI・デバッグ・完成 | ⬜ 未着手 |
 
 ## 現在のフェーズ
-**第3週 - 副露処理（未着手）**
+**第4週 - 役判定ロジック（未着手）**
 
 ## 完了タスク
 
@@ -36,6 +36,17 @@
 - [x] AIBase クラス定義（抽象インタフェース）
 - [x] AILevel3 スケルトン（有効牌ベース選択・守備判断骨格）
 
+### 第3週
+- [x] Hand.findPonIndices / findChiOptions / findMinkanIndices / findAnkanIds / findKakanOptions 実装
+- [x] Game._processClaims 完全実装（ロン>ポン=明槓>チー優先度）
+- [x] Game.selectClaim / _resolveClaimDecisions 実装（人間入力対応）
+- [x] 一時フリテン・リーチ中フリテン付与ロジック実装
+- [x] Game.processPon / processChi / processMinkan 完全実装
+- [x] Game.processAnkan / processKakan / _processKanDraw 完全実装（嶺上ツモ・カンドラ）
+- [x] AILevel3.selectClaimAction 基本実装
+- [x] tests/test-meld.js 作成（52テスト全通過）
+- [x] 全93テスト通過確認
+
 ### 第2週
 - [x] Hand._normalShanten の精度検証（14テストケース全通過）
 - [x] AILevel3.selectDiscard を有効牌枚数ベースに更新（他家リーチ時は安全牌優先）
@@ -52,13 +63,21 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（Hand._normalShanten 検証済み）
 
-## 次回作業内容（第3週）
-- _processClaims の実装（ポン・チー・明槓・ロン受付）
-- processAnkan / processKakan の実装
-- Meld を使った副露確定ロジック（Hand.addMeld）
-- 副露後のフリテン更新（他家の捨て牌ロン見逃し）
-- Player.isMenzen フラグの副露時更新
-- 副露テスト（tests/test-meld.js）
+## 第3週 品質チェックリスト
+- [x] 単体テストで主要ロジックが正常動作している（93/93通過）
+- [x] コンソールエラーがない
+- [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
+
+## 次回作業内容（第4週）
+- Yaku.js の全役実装
+  - 面前役: リーチ・タンヤオ・ピンフ・イーペーコー・三色同順・一気通貫・七対子等
+  - 役牌: 白・發・中・場風・自風
+  - 特殊役: ツモ・リンシャンカイホウ・チャンタ・三槓子など
+  - 役満: 天和・地和・国士・九蓮・四暗刻・大三元・大四喜・清老頭・緑一色・字一色
+- Hand.isComplete() 実装（14枚+副露での和了形チェック）
+- Game._canRon に役チェックを統合（役なし=ロン不可）
+- processWin に役リスト付与
+- tests/test-yaku.js 作成
 
 ## ファイル構造
 ```
@@ -68,16 +87,17 @@ mahjong-game/
 ├── PROGRESS.md
 ├── tests/
 │   ├── test-hand.js      ✅ 14テスト
-│   └── test-game-flow.js ✅ 27テスト
+│   ├── test-game-flow.js ✅ 27テスト
+│   └── test-meld.js      ✅ 52テスト
 └── src/
     ├── main.js
     ├── core/
     │   ├── Tile.js      ✅ 完全実装
     │   ├── Wall.js      ✅ 完全実装
     │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
-    │   ├── Meld.js      ✅ 定義完了
+    │   ├── Meld.js      ✅ 完全実装
     │   ├── Player.js    ✅ checkFuriten 完全実装
-    │   └── Game.js      ✅ AI接続・ターン管理完成
+    │   └── Game.js      ✅ 副露処理・_processClaims・カン処理完成
     ├── logic/
     │   ├── Yaku.js      🔄 スケルトン（第4週実装予定）
     │   ├── Score.js     🔄 スケルトン（第5週実装予定）
