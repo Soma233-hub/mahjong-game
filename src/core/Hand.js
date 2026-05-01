@@ -74,11 +74,13 @@ export class Hand {
         return c;
     }
 
-    _normalShanten() {
+    // extraMentsu: 副露済みの面子数（isComplete で副露考慮に使用）
+    _normalShanten(extraMentsu = 0) {
         const counts = this._tileCounts();
         let best = 8;
 
         const dfs = (cnt, mentsu, jantai) => {
+            const totalMentsu = mentsu + extraMentsu;
             // 搭子カウント
             let partial = 0;
             for (let id = 0; id < 34; id++) {
@@ -87,10 +89,10 @@ export class Hand {
                 if (s < 3 && id % 9 < 8 && cnt[id + 1] > 0) partial++;
                 else if (s < 3 && id % 9 < 7 && cnt[id + 2] > 0) partial++;
             }
-            // 面子+搭子の上限は4（雀頭有無で変わる）
-            const limit = 4 - mentsu;
-            if (partial + mentsu > 4) partial = 4 - mentsu;
-            const s = 8 - 2 * mentsu - jantai - Math.min(partial, limit);
+            // 面子+搭子の上限は (4 - extraMentsu - mentsu)
+            const limit = 4 - totalMentsu;
+            if (partial > limit) partial = limit;
+            const s = 8 - 2 * totalMentsu - jantai - partial;
             best = Math.min(best, s);
 
             for (let id = 0; id < 34; id++) {
@@ -190,6 +192,20 @@ export class Hand {
             if (ti >= 0) opts.push({ meldIndex: mi, tileIndex: ti });
         });
         return opts;
+    }
+
+    // 和了形かどうか判定（副露×3 + tiles = 14枚）
+    isComplete(winTile) {
+        const total = this.tiles.length + this.melds.length * 3;
+        if (total !== 14) return false;
+
+        // 副露なしのみ七対子・国士を確認
+        if (this.melds.length === 0) {
+            if (this._kokushiShanten() === -1) return true;
+            if (this._chiitoiShanten() === -1) return true;
+        }
+        // 通常形（副露分の面子数を extraMentsu として渡す）
+        return this._normalShanten(this.melds.length) === -1;
     }
 
     _chiitoiShanten() {
