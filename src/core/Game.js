@@ -133,7 +133,9 @@ export class Game {
 
     _processAIAction(player) {
         const action = player.ai.selectDrawAction(player, this);
-        if (action.action === 'discard') {
+        if (action.action === 'tsumo') {
+            this.processWin(player.index);
+        } else if (action.action === 'discard') {
             this.processDiscard(player.index, action.index);
         }
     }

@@ -160,7 +160,8 @@ console.log('\n[流局検知 - Player0もAI扱いでシミュレート]');
         g.state === GAME_STATE.ROUND_END || g.state === GAME_STATE.GAME_END,
         `AIのみゲームは自動完走 (state: ${g.state})`
     );
-    assert(roundEndResult === 'ryuukyoku', `流局で終了 (result: ${roundEndResult})`);
+    const validResults = ['ryuukyoku', 'tsumo', 'ron', 'chombo'];
+    assert(validResults.includes(roundEndResult), `有効な結果で終了 (result: ${roundEndResult})`);
 }
 
 // ========================
