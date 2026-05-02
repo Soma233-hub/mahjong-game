@@ -45,7 +45,8 @@ export class Hand {
         return { shanten, type };
     }
 
-    isTenpai() { return this.getShantenNumber().shanten === 0; }
+    isTenpai()    { return this.getShantenNumber().shanten === 0; }
+    isComplete()  { return this.getShantenNumber().shanten === -1; }
 
     // 有効牌のidセット（向聴数を下げる牌）
     getEffectiveTileIds() {
