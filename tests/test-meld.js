@@ -294,9 +294,10 @@ console.log('\n[_processClaims: 請求なし]');
     // プレイヤー0（人間）の最初のアクション
     if (g.state === GAME_STATE.PLAYER_ACTION && g.currentIndex === 0) {
         g.processDiscard(0, 0);
-        // 全員パスで次ターンへ
-        // state は DRAW か PLAYER_ACTION のはず（次のプレイヤー）
-        assert(g.state !== GAME_STATE.CLAIM, '全員パスでCLAIMから抜けた');
+        // CLAIMが残っている場合はhuman判断待ち（_claimContextあり）のみ許容
+        // AIチェーン後にPlayer0がPON/CHI可能になるケースは正常動作
+        const claimOk = g.state !== GAME_STATE.CLAIM || g._claimContext !== null;
+        assert(claimOk, '全員パスでCLAIMから抜けた（またはhuman pending正常）');
     } else {
         assert(false, 'startGame後にプレイヤー0がPLAYER_ACTION待ちでない');
     }

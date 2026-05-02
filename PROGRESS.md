@@ -13,11 +13,19 @@
 | 第2週 | 牌管理 | 牌管理・山・手牌・ツモ・捨て牌実装 | ✅ 完了 |
 | 第3週 | 副露 | ポン・チー・暗槓・明槓・加槓実装 | ✅ 完了 |
 | 第4週 | 役判定 | 全役対応の役判定ロジック実装 | ✅ 完了 |
-| 第5週 | 点数・ドラ | 点数計算・表/裏/カン/赤ドラ処理 | ⬜ 未着手 |
+| 第5週 | 点数・ドラ | 点数計算・表/裏/カン/赤ドラ処理 | ✅ 完了 |
 | 第6週 | GUI・仕上げ | GUI実装・Lv.3 AI・デバッグ・完成 | ⬜ 未着手 |
 
 ## 現在のフェーズ
-**第5週 - 点数計算・ドラ処理（着手予定）**
+**第6週 - GUI・仕上げ（着手予定）**
+
+## 午後セッション確認記録（2026-05-02）
+- 全テスト通過確認: 266/266 ✅ (14 + 27 + 52 + 85 + 88)
+- 第5週完了: 点数計算・符計算・Game.js統合
+- 新規実装: Score.calculateFu(), Score.calculateScore(), basicPoints()修正, Game._calculateWin()
+- テスト数: 88テスト (tests/test-score.js)
+- 発見バグ: test-meld.js非決定的テスト修正（human PON pending正常化）
+- decomposeClosed export追加（Yaku.js → Score.js で利用）
 
 ## 土曜日セッション確認記録（2026-05-02）
 - 全テスト通過確認: 178/178 ✅ (14 + 27 + 52 + 85)
@@ -98,6 +106,11 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（Hand._normalShanten 検証済み）
 
+## 第5週 品質チェックリスト
+- [x] 単体テストで主要ロジックが正常動作している（266/266通過）
+- [x] コンソールエラーがない
+- [x] 前フェーズの既知バグが解消されている（符計算・点数計算・Game統合 検証済み）
+
 ## 第4週 品質チェックリスト
 - [x] 単体テストで主要ロジックが正常動作している（178/178通過）
 - [x] コンソールエラーがない
@@ -108,16 +121,17 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
-## 次回作業内容（第5週）
-- Score.js 点数計算実装
-  - calculateFu: 符計算（雀頭・面子・待ち牌・和了方法による符）
-  - calculateScore: 基本点・翻数・符から点数計算（切り上げ満貫含む）
-  - 子・親の点数分配ロジック
-  - Mangan/Haneman/Baiman/Sanbaiman/Yakuman 判定
-- Dora.js との統合（表ドラ・裏ドラ・カンドラ・赤ドラ加算）
-- Game.processWin に evaluateYaku + calculateScore を統合
-- フリテン・流局の検証強化
-- tests/test-score.js 作成（符計算・点数計算テスト）
+## 次回作業内容（第6週）
+- GameScene.js の GUI 実装（Phaser3 で画面描画）
+  - 手牌・捨て牌・副露の表示
+  - ツモ・打牌・鳴き操作のUI
+  - 点数・役表示パネル
+- AILevel3 の強化
+  - selectDrawAction でツモ和了判断
+  - リーチ宣言の自動化
+  - 守備判断（筋・壁・現物の安全度）
+- 1000局シミュレーションテスト
+- 最終デバッグ・完成
 
 ## ファイル構造
 ```
@@ -129,7 +143,8 @@ mahjong-game/
 │   ├── test-hand.js      ✅ 14テスト
 │   ├── test-game-flow.js ✅ 27テスト
 │   ├── test-meld.js      ✅ 52テスト
-│   └── test-yaku.js      ✅ 85テスト（第4週）
+│   ├── test-yaku.js      ✅ 85テスト（第4週）
+│   └── test-score.js     ✅ 88テスト（第5週）
 └── src/
     ├── main.js
     ├── core/
@@ -138,10 +153,10 @@ mahjong-game/
     │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
     │   ├── Meld.js      ✅ 完全実装
     │   ├── Player.js    ✅ checkFuriten 完全実装
-    │   └── Game.js      ✅ 副露処理・_processClaims・カン処理完成
+    │   └── Game.js      ✅ 副露・カン・点数計算統合完成（_calculateWin）
     ├── logic/
-    │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed）
-    │   ├── Score.js     🔄 スケルトン（第5週実装予定）
+    │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed export）
+    │   ├── Score.js     ✅ 符計算・点数計算完全実装（第5週）
     │   └── Dora.js      ✅ 完全実装
     ├── ai/
     │   ├── AIBase.js    ✅ 定義完了

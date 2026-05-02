@@ -2,6 +2,9 @@ import { Wall } from './Wall.js';
 import { Player } from './Player.js';
 import { Meld, MELD_TYPE } from './Meld.js';
 import { AILevel3 } from '../ai/AILevel3.js';
+import { evaluateYaku } from '../logic/Yaku.js';
+import { calculateFu, calculateScore } from '../logic/Score.js';
+import { countDora, countUraDora } from '../logic/Dora.js';
 
 export const GAME_STATE = Object.freeze({
     INIT:           'init',
@@ -45,6 +48,8 @@ export class Game {
 
         this.lastDiscard      = null;
         this.lastDiscardPlayer = -1;
+
+        this._isRinshan   = false; // 嶺上開花フラグ
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -92,6 +97,7 @@ export class Game {
     // --- ターン処理 ---
 
     _processDraw() {
+        this._isRinshan = false;
         const player = this.players[this.currentIndex];
         const tile = this.wall.draw();
         if (!tile) {
@@ -109,6 +115,7 @@ export class Game {
     }
 
     _processKanDraw() {
+        this._isRinshan = true;
         const player = this.players[this.currentIndex];
         const tile = this.wall.drawRinshan();
         if (!tile) {
@@ -429,17 +436,127 @@ export class Game {
         this._processKanDraw();
     }
 
-    // 和了（ロン）- 構造確認のみ。役計算は第4週
+    // 和了（ロン）
     processRon(winnerIndex, discarderIndex) {
+        const winner   = this.players[winnerIndex];
+        const discarder = this.players[discarderIndex];
+
+        // 和了牌を手牌に追加して役・符・点数を計算
+        winner.hand.add(this.lastDiscard);
+        const result = this._calculateWin(winnerIndex, false);
+
+        if (!result) {
+            // 役なしチョンボ
+            winner.hand.tiles.pop();
+            this.state = GAME_STATE.ROUND_END;
+            this.emit('roundEnd', { result: ROUND_RESULT.CHOMBO, winnerIndex });
+            return;
+        }
+
+        const { total, payments } = result;
+        winner.score    += total;
+        discarder.score -= payments[0];
+        this.kyotaku = 0;
+
         this.state = GAME_STATE.ROUND_END;
-        this.emit('roundEnd', { result: ROUND_RESULT.RON, winnerIndex, discarderIndex });
+        this.emit('roundEnd', { result: ROUND_RESULT.RON, winnerIndex, discarderIndex, ...result });
     }
 
-    // 和了（ツモ）- 役計算は第4週
-    processWin(winnerIndex, ronDiscarderIndex = -1) {
+    // 和了（ツモ）
+    processWin(winnerIndex) {
+        const winner    = this.players[winnerIndex];
+        const isDealer  = winnerIndex === this.dealerIndex;
+        const result    = this._calculateWin(winnerIndex, true);
+
+        if (!result) {
+            this.state = GAME_STATE.ROUND_END;
+            this.emit('roundEnd', { result: ROUND_RESULT.CHOMBO, winnerIndex });
+            return;
+        }
+
+        const { total, payments } = result;
+        winner.score += total;
+
+        if (isDealer) {
+            // 親ツモ: 子3人が各 payments[0] 支払い
+            for (let i = 0; i < 4; i++) {
+                if (i !== winnerIndex) this.players[i].score -= payments[0];
+            }
+        } else {
+            // 子ツモ: 親=payments[0], 各子=payments[1]
+            for (let i = 0; i < 4; i++) {
+                if (i === winnerIndex) continue;
+                if (i === this.dealerIndex) this.players[i].score -= payments[0];
+                else                        this.players[i].score -= payments[1];
+            }
+        }
+        this.kyotaku = 0;
+
         this.state = GAME_STATE.ROUND_END;
-        const result = ronDiscarderIndex < 0 ? ROUND_RESULT.TSUMO : ROUND_RESULT.RON;
-        this.emit('roundEnd', { result, winnerIndex });
+        this.emit('roundEnd', { result: ROUND_RESULT.TSUMO, winnerIndex, ...result });
+    }
+
+    // 和了時の役・符・点数計算（内部ヘルパー）
+    // 呼び出し前: 和了牌は必ず winner.hand.tiles の末尾に追加済みであること
+    _calculateWin(winnerIndex, isTsumo) {
+        const winner   = this.players[winnerIndex];
+        const isDealer = winnerIndex === this.dealerIndex;
+        const seatWind = winner.getSeatWind(this.dealerIndex) + 1; // 1=東…4=北
+        const winTile  = winner.hand.tiles[winner.hand.tiles.length - 1];
+
+        const context = {
+            isTsumo,
+            isRiichi:       winner.isRiichi,
+            isDoubleRiichi: winner.isDoubleRiichi,
+            isIppatsu:      winner.isIppatsu,
+            seatWind,
+            roundWind:      1, // 東風戦固定
+            isHaitei:       isTsumo  && this.wall.isEmpty(),
+            isHoutei:       !isTsumo && this.wall.isEmpty(),
+            isRinshan:      this._isRinshan,
+            isChankan:      false,
+            isTenhou:       false,
+            isChiihou:      false,
+        };
+
+        const yakuResult = evaluateYaku(winner.hand, winTile, context);
+
+        // 役なし
+        if (!yakuResult.isYakuman && yakuResult.yaku.length === 0) return null;
+
+        // ドラ計算
+        const doraCnt = countDora(
+            winner.hand.tiles, winner.hand.melds, this.wall.doraIndicators
+        );
+
+        // 裏ドラ（リーチ和了時）
+        let uraDoraCnt = 0;
+        if (winner.isRiichi) {
+            this.wall.revealUraDora();
+            uraDoraCnt = countUraDora(
+                winner.hand.tiles, winner.hand.melds, this.wall.uraDoraIndicators
+            );
+        }
+
+        // 翻数
+        let han;
+        if (yakuResult.isYakuman) {
+            const singles = yakuResult.yaku.filter(y => y.yakuman && !y.double).length;
+            const doubles = yakuResult.yaku.filter(y => y.double).length;
+            han = (singles + doubles * 2) * 13;
+        } else {
+            han = yakuResult.han + doraCnt + uraDoraCnt;
+        }
+
+        // 符計算（isPinfuはyakuResultから判定）
+        context.isPinfu = yakuResult.yaku.some(y => y.key === 'PINFU');
+        const fu = calculateFu(winner.hand, winTile, context);
+
+        const scoreResult = calculateScore(
+            han, fu, isDealer, isTsumo, this.honba, this.kyotaku
+        );
+
+        return { yakuResult, han, fu, doraCnt, uraDoraCnt, ...scoreResult };
     }
 
     _nextTurn() {
