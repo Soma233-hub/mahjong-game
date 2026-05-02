@@ -2,6 +2,9 @@ import { Wall } from './Wall.js';
 import { Player } from './Player.js';
 import { Meld, MELD_TYPE } from './Meld.js';
 import { AILevel3 } from '../ai/AILevel3.js';
+import { evaluateYaku } from '../logic/Yaku.js';
+import { calculateFu, calculateScore } from '../logic/Score.js';
+import { countDora, countUraDora } from '../logic/Dora.js';
 
 export const GAME_STATE = Object.freeze({
     INIT:           'init',
@@ -43,8 +46,10 @@ export class Game {
         this.honba            = 0;
         this.kyotaku          = 0;
 
-        this.lastDiscard      = null;
+        this.lastDiscard       = null;
         this.lastDiscardPlayer = -1;
+        this.lastDrawnTile     = null;
+        this._lastWasRinshan   = false;
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -99,6 +104,8 @@ export class Game {
             return;
         }
         player.draw(tile);
+        this.lastDrawnTile   = tile;
+        this._lastWasRinshan = false;
         this.turn++;
         this.state = GAME_STATE.PLAYER_ACTION;
         this.emit('draw', { playerIndex: this.currentIndex, tile });
@@ -116,6 +123,8 @@ export class Game {
             return;
         }
         player.draw(tile);
+        this.lastDrawnTile   = tile;
+        this._lastWasRinshan = true;
         this.state = GAME_STATE.PLAYER_ACTION;
         this.emit('kanDraw', { playerIndex: this.currentIndex, tile });
 
@@ -429,17 +438,94 @@ export class Game {
         this._processKanDraw();
     }
 
-    // 和了（ロン）- 構造確認のみ。役計算は第4週
+    // ロン和了（内部からは processWin を呼ぶ）
     processRon(winnerIndex, discarderIndex) {
-        this.state = GAME_STATE.ROUND_END;
-        this.emit('roundEnd', { result: ROUND_RESULT.RON, winnerIndex, discarderIndex });
+        this.processWin(winnerIndex, discarderIndex);
     }
 
-    // 和了（ツモ）- 役計算は第4週
+    // 和了処理（ツモ: ronDiscarderIndex=-1 / ロン: 放銃者index）
     processWin(winnerIndex, ronDiscarderIndex = -1) {
+        const isTsumo  = ronDiscarderIndex < 0;
+        const player   = this.players[winnerIndex];
+        const winTile  = isTsumo ? this.lastDrawnTile : this.lastDiscard;
+
+        // 自席風（東=1, 南=2, 西=3, 北=4）
+        const seatWind  = ((winnerIndex - this.dealerIndex + 4) % 4) + 1;
+        // 場風（東場=1, 南場=2）
+        const roundWind = Math.floor(this.round / 4) + 1;
+
+        const context = {
+            isTsumo,
+            isRiichi:       player.isRiichi,
+            isDoubleRiichi: player.isDoubleRiichi,
+            isIppatsu:      player.isIppatsu,
+            seatWind,
+            roundWind,
+            isHaitei:  isTsumo && this.wall.remaining === 0,
+            isHoutei:  !isTsumo && this.wall.remaining === 0,
+            isRinshan: this._lastWasRinshan,
+        };
+
+        // 役判定
+        const yakuResult = evaluateYaku(player.hand, winTile, context);
+
+        // ドラ計算（役満以外）
+        let totalHan = 0;
+        if (yakuResult.isYakuman) {
+            // 役満翻数（ダブル役満は2倍）
+            const doubles = yakuResult.yaku.filter(y => y.yakuman && y.double).length;
+            const singles = yakuResult.yaku.filter(y => y.yakuman && !y.double).length;
+            totalHan = (doubles * 2 + singles) * 13; // 13=単役満, 26=ダブル
+        } else {
+            const doraCount    = countDora(player.hand.tiles, player.hand.melds, this.wall.doraIndicators);
+            const uraDoraCount = player.isRiichi
+                ? countUraDora(player.hand.tiles, player.hand.melds, this.wall.uraDoraIndicators)
+                : 0;
+            totalHan = yakuResult.han + doraCount + uraDoraCount;
+        }
+
+        // 裏ドラ開示（リーチ和了）
+        if (player.isRiichi) this.wall.revealUraDora();
+
+        // 符計算
+        const isPinfu = yakuResult.yaku.some(y => y.key === 'PINFU');
+        const fu = calculateFu(player.hand, winTile, { ...context, isPinfu });
+
+        // 点数計算
+        const isDealer   = winnerIndex === this.dealerIndex;
+        const scoreResult = calculateScore(
+            yakuResult.isYakuman ? totalHan : totalHan,
+            fu,
+            isDealer,
+            isTsumo,
+            this.honba,
+            this.kyotaku,
+        );
+
+        // 点数移動
+        if (isTsumo) {
+            // 親ツモ: 全員payments[0], 子ツモ: 親=payments[0], 他子=payments[1]
+            for (let i = 0; i < 4; i++) {
+                if (i === winnerIndex) continue;
+                const amount = (isDealer || i === this.dealerIndex)
+                    ? scoreResult.payments[0]
+                    : scoreResult.payments[1];
+                this.players[i].score -= amount;
+            }
+        } else {
+            this.players[ronDiscarderIndex].score -= scoreResult.payments[0];
+        }
+        // 勝者: 払い込み合計 + 供託ボーナス（total に含まれる）
+        player.score += scoreResult.total;
+        this.kyotaku = 0;
+
         this.state = GAME_STATE.ROUND_END;
-        const result = ronDiscarderIndex < 0 ? ROUND_RESULT.TSUMO : ROUND_RESULT.RON;
-        this.emit('roundEnd', { result, winnerIndex });
+        const result = isTsumo ? ROUND_RESULT.TSUMO : ROUND_RESULT.RON;
+        this.emit('roundEnd', {
+            result, winnerIndex,
+            discarderIndex: ronDiscarderIndex,
+            yakuResult, fu, scoreResult,
+        });
     }
 
     _nextTurn() {

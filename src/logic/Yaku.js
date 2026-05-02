@@ -72,7 +72,7 @@ function allTileIds(hand) {
 // DecompNormal  = { type:'normal',   pair: id, mentsu: [{type:'triplet'|'sequence', ids:[...]}] }
 // DecompChiitoi = { type:'chiitoi',  pairs: [id...] }
 // DecompKokushi = { type:'kokushi' }
-function decomposeClosed(hand) {
+export function decomposeClosed(hand) {
     const results = [];
     const baseCounts = new Array(34).fill(0);
     hand.tiles.forEach(t => baseCounts[t.id]++);
