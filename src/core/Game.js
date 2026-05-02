@@ -2,6 +2,7 @@ import { Wall } from './Wall.js';
 import { Player } from './Player.js';
 import { Meld, MELD_TYPE } from './Meld.js';
 import { AILevel3 } from '../ai/AILevel3.js';
+import { evaluateYaku } from '../logic/Yaku.js';
 
 export const GAME_STATE = Object.freeze({
     INIT:           'init',
@@ -161,10 +162,29 @@ export class Game {
 
     // --- 副露処理 ---
 
-    // 他家の捨て牌に対してロン可能か（構造的チェック、役判定は第4週）
+    // 他家の捨て牌に対してロン可能か（役チェック統合）
     _canRon(player, tile) {
         if (player.isFuriten || player.isTemporaryFuriten) return false;
-        return player.hand.getWaitingTileIds().includes(tile.id);
+        if (!player.hand.getWaitingTileIds().includes(tile.id)) return false;
+
+        // 役チェック（evaluateYaku が内部でwinTileを追加）
+        const seatWind  = player.getSeatWind(this.dealerIndex) + 1;
+        const roundWind = (this.round % 4) + 1;
+        const ctx = {
+            isTsumo: false,
+            isRiichi: player.isRiichi,
+            isDoubleRiichi: player.isDoubleRiichi,
+            isIppatsu: player.isIppatsu,
+            seatWind,
+            roundWind,
+            isHaitei: false,
+            isHoutei: this.wall.remaining === 0,
+            isRinshan: false,
+            isChankan: false,
+            isTenhou: false,
+            isChiihou: false,
+        };
+        return evaluateYaku(player.hand, tile, ctx).yaku.length > 0;
     }
 
     _canPon(player, tile) {
