@@ -13,11 +13,18 @@
 | 第2週 | 牌管理 | 牌管理・山・手牌・ツモ・捨て牌実装 | ✅ 完了 |
 | 第3週 | 副露 | ポン・チー・暗槓・明槓・加槓実装 | ✅ 完了 |
 | 第4週 | 役判定 | 全役対応の役判定ロジック実装 | ✅ 完了 |
-| 第5週 | 点数・ドラ | 点数計算・表/裏/カン/赤ドラ処理 | ⬜ 未着手 |
+| 第5週 | 点数・ドラ | 点数計算・表/裏/カン/赤ドラ処理 | ✅ 完了 |
 | 第6週 | GUI・仕上げ | GUI実装・Lv.3 AI・デバッグ・完成 | ⬜ 未着手 |
 
 ## 現在のフェーズ
-**第5週 - 点数計算・ドラ処理（着手予定）**
+**第6週 - GUI実装・AI強化・デバッグ・完成（次回着手）**
+
+## 午後セッション確認記録（2026-05-02）
+- 全テスト通過確認: 257/257 ✅ (14 + 27 + 52 + 85 + 79)
+- 第5週完了: 点数計算・符計算・ドラ統合
+- 新規実装: calculateFu(), calculateScore(), basicPoints(), Game.processWin()統合
+- テスト数: 79テスト (tests/test-score.js)
+- 発見バグ: 辺張テスト記述ミス（7-8→9は両面、8-9→7が辺張）→即修正
 
 ## 土曜日セッション確認記録（2026-05-02）
 - 全テスト通過確認: 178/178 ✅ (14 + 27 + 52 + 85)
@@ -39,6 +46,16 @@
 - GitHub Issue #1 作成（週次レポート）
 
 ## 完了タスク
+
+### 第5週
+- [x] Yaku.js: decomposeClosed を export に変更
+- [x] Score.js: calculateFu 実装（七対子25符/平和特例/全待ち種別/全面子種別/副露符/連風牌）
+- [x] Score.js: calculateScore 実装（通常/満貫/跳満/倍満/三倍満/役満/ダブル役満・本場・供託）
+- [x] Score.js: basicPoints 修正（正しい基本点2000基準）
+- [x] Game.js: lastDrawnTile / _lastWasRinshan 追跡
+- [x] Game.js: processWin 完全実装（evaluateYaku + calculateFu + calculateScore + 点数移動）
+- [x] tests/test-score.js 作成（79テスト全通過）
+- [x] 全257テスト通過確認
 
 ### 第1週
 - [x] プロジェクト構造作成（index.html, package.json, src/）
@@ -98,6 +115,11 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（Hand._normalShanten 検証済み）
 
+## 第5週 品質チェックリスト
+- [x] 単体テストで主要ロジックが正常動作している（257/257通過）
+- [x] コンソールエラーがない
+- [x] 辺張テスト記述ミスを発見・修正済み（8-9→7待ちが辺張）
+
 ## 第4週 品質チェックリスト
 - [x] 単体テストで主要ロジックが正常動作している（178/178通過）
 - [x] コンソールエラーがない
@@ -108,16 +130,17 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
-## 次回作業内容（第5週）
-- Score.js 点数計算実装
-  - calculateFu: 符計算（雀頭・面子・待ち牌・和了方法による符）
-  - calculateScore: 基本点・翻数・符から点数計算（切り上げ満貫含む）
-  - 子・親の点数分配ロジック
-  - Mangan/Haneman/Baiman/Sanbaiman/Yakuman 判定
-- Dora.js との統合（表ドラ・裏ドラ・カンドラ・赤ドラ加算）
-- Game.processWin に evaluateYaku + calculateScore を統合
-- フリテン・流局の検証強化
-- tests/test-score.js 作成（符計算・点数計算テスト）
+## 次回作業内容（第6週）
+- GameScene.js GUI実装
+  - 手牌・捨て牌・副露の描画
+  - ツモ/捨て牌/リーチ操作UI
+  - ロン/ポン/チー選択ダイアログ
+- ResultScene.js 結果画面完成（役一覧・点数表示）
+- AILevel3 強化
+  - selectDrawAction: ツモ和了・暗槓・加槓・リーチ判断
+  - selectClaimAction: ポン・チー価値評価
+- エンドツーエンド動作確認（1局完走テスト）
+- 最終デバッグ・品質チェック
 
 ## ファイル構造
 ```
@@ -138,10 +161,10 @@ mahjong-game/
     │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
     │   ├── Meld.js      ✅ 完全実装
     │   ├── Player.js    ✅ checkFuriten 完全実装
-    │   └── Game.js      ✅ 副露処理・_processClaims・カン処理完成
+    │   └── Game.js      ✅ processWin統合完了（点数計算・移動）
     ├── logic/
-    │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed）
-    │   ├── Score.js     🔄 スケルトン（第5週実装予定）
+    │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed export）
+    │   ├── Score.js     ✅ 完全実装（calculateFu・calculateScore）
     │   └── Dora.js      ✅ 完全実装
     ├── ai/
     │   ├── AIBase.js    ✅ 定義完了
