@@ -133,8 +133,21 @@ export class Game {
 
     _processAIAction(player) {
         const action = player.ai.selectDrawAction(player, this);
-        if (action.action === 'discard') {
-            this.processDiscard(player.index, action.index);
+        switch (action.action) {
+            case 'tsumo':
+                this.processWin(player.index);
+                break;
+            case 'riichi':
+                this.processRiichi(player.index, action.index);
+                break;
+            case 'ankan':
+                this.processAnkan(player.index, action.tileId);
+                break;
+            case 'kakan':
+                this.processKakan(player.index, action.meldIndex);
+                break;
+            default:
+                this.processDiscard(player.index, action.index);
         }
     }
 

@@ -17,7 +17,15 @@
 | 第6週 | GUI・仕上げ | GUI実装・Lv.3 AI・デバッグ・完成 | ⬜ 未着手 |
 
 ## 現在のフェーズ
-**第6週 - GUI・仕上げ（着手予定）**
+**第6週 - GUI・仕上げ（進行中）**
+
+## 土曜日午前セッション確認記録（2026-05-03）
+- 全テスト通過確認: 292/292 ✅ (14 + 27 + 52 + 85 + 88 + 17 + 9)
+- 新規実装: AILevel3 強化（ツモ和了・リーチ宣言・暗槓/加槓・役牌ポン・チー評価）
+- 新規実装: Game._processAIAction 拡張（tsumo/riichi/ankan/kakan 対応）
+- 新規実装: GameScene.js GUI（手牌・捨て牌・副露・アクションボタン・スコア表示）
+- テスト数: 17テスト (tests/test-ai.js) + 9テスト (tests/test-simulation.js) 追加
+- 発見バグ: _shouldPon で三元牌でも findPonIndices=null チェックが必要 → 修正済み
 
 ## 夕方セッション確認記録（2026-05-02）
 - 全テスト通過確認: 266/266 ✅ (14 + 27 + 52 + 85 + 88)
@@ -127,30 +135,35 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
-## 次回作業内容（第6週）
-- GameScene.js の GUI 実装（Phaser3 で画面描画）
-  - 手牌・捨て牌・副露の表示
-  - ツモ・打牌・鳴き操作のUI
-  - 点数・役表示パネル
-- AILevel3 の強化
-  - selectDrawAction でツモ和了判断
-  - リーチ宣言の自動化
-  - 守備判断（筋・壁・現物の安全度）
-- 1000局シミュレーションテスト
-- 最終デバッグ・完成
+## 次回作業内容（第6週 残り）
+- ブラウザ動作確認・GUI 調整（npx serve . でUIを確認）
+- AILevel3 守備強化（筋・壁牌の安全度スコア計算）
+- シミュレーション統計（1000局・和了率・放銃率・平均点数）
+- 最終デバッグ・バランス調整・完成
+
+## 第6週 品質チェックリスト
+- [x] 単体テストで主要ロジックが正常動作している（292/292通過）
+- [x] AILevel3 ツモ和了・リーチ・暗槓/加槓・役牌ポン・チー実装
+- [x] Game._processAIAction 全アクション対応
+- [x] GameScene.js GUI 骨格実装
+- [ ] ブラウザ動作確認（GUI）
+- [ ] 守備AI強化（筋・壁）
+- [ ] シミュレーション統計
 
 ## ファイル構造
 ```
 mahjong-game/
 ├── index.html
-├── package.json          ← "test" スクリプト追加
+├── package.json          ← test スクリプト全7ファイル対応
 ├── PROGRESS.md
 ├── tests/
 │   ├── test-hand.js      ✅ 14テスト
 │   ├── test-game-flow.js ✅ 27テスト
 │   ├── test-meld.js      ✅ 52テスト
 │   ├── test-yaku.js      ✅ 85テスト（第4週）
-│   └── test-score.js     ✅ 88テスト（第5週）
+│   ├── test-score.js     ✅ 88テスト（第5週）
+│   ├── test-ai.js        ✅ 17テスト（第6週）
+│   └── test-simulation.js✅  9テスト（第6週）
 └── src/
     ├── main.js
     ├── core/
@@ -159,16 +172,16 @@ mahjong-game/
     │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
     │   ├── Meld.js      ✅ 完全実装
     │   ├── Player.js    ✅ checkFuriten 完全実装
-    │   └── Game.js      ✅ 副露・カン・点数計算統合完成（_calculateWin）
+    │   └── Game.js      ✅ _processAIAction 全アクション対応（第6週）
     ├── logic/
     │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed export）
     │   ├── Score.js     ✅ 符計算・点数計算完全実装（第5週）
     │   └── Dora.js      ✅ 完全実装
     ├── ai/
     │   ├── AIBase.js    ✅ 定義完了
-    │   └── AILevel3.js  🔄 有効牌ベース打牌・安全牌選択 動作中
+    │   └── AILevel3.js  ✅ ツモ和了・リーチ・暗槓/加槓・役牌ポン・チー（第6週）
     └── scenes/
         ├── BootScene.js    ✅
-        ├── GameScene.js    🔄 スタブ（第6週実装予定）
+        ├── GameScene.js    🔄 GUI骨格実装済み（ブラウザ未確認）
         └── ResultScene.js  ✅ 基本表示
 ```
