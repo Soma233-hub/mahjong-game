@@ -453,6 +453,9 @@ export class Game {
 
     // 和了（ロン）
     processRon(winnerIndex, discarderIndex) {
+        // 複数ロン宣言時に最初のロン処理でラウンドが終了している場合はスキップ
+        if (this.state === GAME_STATE.ROUND_END || this.state === GAME_STATE.GAME_END) return;
+
         const winner   = this.players[winnerIndex];
         const discarder = this.players[discarderIndex];
 
@@ -479,6 +482,9 @@ export class Game {
 
     // 和了（ツモ）
     processWin(winnerIndex) {
+        // 局が既に終了している場合（再帰イベント処理による二重実行を防止）
+        if (this.state === GAME_STATE.ROUND_END || this.state === GAME_STATE.GAME_END) return;
+
         const winner    = this.players[winnerIndex];
         const isDealer  = winnerIndex === this.dealerIndex;
         const result    = this._calculateWin(winnerIndex, true);
