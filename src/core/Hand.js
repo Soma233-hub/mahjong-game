@@ -80,9 +80,10 @@ export class Hand {
         let best = 8;
 
         const dfs = (cnt, mentsu, jantai) => {
-            // 搭子カウント
+            // 搭子カウント（cnt[id]>0 の牌だけ対象）
             let partial = 0;
             for (let id = 0; id < 34; id++) {
+                if (cnt[id] === 0) continue;
                 if (cnt[id] >= 2) { partial++; continue; }
                 const s = Math.floor(id / 9);
                 if (s < 3 && id % 9 < 8 && cnt[id + 1] > 0) partial++;

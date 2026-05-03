@@ -26,15 +26,16 @@ export const ROUND_RESULT = Object.freeze({
 });
 
 export class Game {
-    constructor() {
+    constructor(options = {}) {
         this.wall    = new Wall();
+        const allAI  = options.allAI || false;
         this.players = [
-            new Player(0, true),
+            new Player(0, !allAI),
             new Player(1, false),
             new Player(2, false),
             new Player(3, false),
         ];
-        for (let i = 1; i <= 3; i++) {
+        for (let i = (allAI ? 0 : 1); i <= 3; i++) {
             this.players[i].ai = new AILevel3(i);
         }
 
@@ -133,8 +134,21 @@ export class Game {
 
     _processAIAction(player) {
         const action = player.ai.selectDrawAction(player, this);
-        if (action.action === 'discard') {
-            this.processDiscard(player.index, action.index);
+        switch (action.action) {
+            case 'tsumo':
+                this.processWin(player.index);
+                break;
+            case 'riichi':
+                this.processRiichi(player.index, action.index);
+                break;
+            case 'ankan':
+                this.processAnkan(player.index, action.tileId);
+                break;
+            case 'kakan':
+                this.processKakan(player.index, action.meldIndex);
+                break;
+            default:
+                this.processDiscard(player.index, action.index);
         }
     }
 
@@ -163,6 +177,7 @@ export class Game {
         const player = this.players[playerIndex];
         const isDouble = this.turn <= 4;
         player.declareRiichi(this.turn, isDouble);
+        this.kyotaku++; // リーチ棒を供託
         this.processDiscard(playerIndex, tileIndex);
     }
 
