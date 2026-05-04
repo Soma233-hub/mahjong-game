@@ -158,12 +158,26 @@
 - [x] processRon/processWin バグ修正（ダブルロン時の再帰二重実行チョンボ防止）
 - [x] 1000局シミュレーション実施・チョンボ0確認
 
+## 夕方セッション確認記録（2026-05-04）
+- 全テスト通過確認: 320/320 ✅ (14 + 24 + 52 + 85 + 88 + 5 + 52)
+- 新規実装: src/ui/Layout.js（純粋レイアウト計算関数、52テスト全通過）
+- 新規実装: GameScene.js 完全GUI実装
+  - 手牌・捨て牌・副露の Phaser3 描画（テキスト牌）
+  - 人間プレイヤーの打牌・リーチ・暗槓・加槓・ツモ操作UI
+  - 鳴き判断パネル（ロン・ポン・チー・明槓・パス）
+  - 点数・局情報パネル
+  - 局終了パネル（役・翻数・符・点数表示 + 次の局へボタン）
+- TDDサイクル: test-gui-layout.js（Red→Green）→ Layout.js → GameScene.js
+
+## 完了タスク（第6週 続き）
+- [x] src/ui/Layout.js 実装（handPositions / discardPosition / meldTilePositions）
+- [x] tests/test-gui-layout.js 作成（52テスト全通過）
+- [x] GameScene.js 完全実装（スタブ → フルGUI）
+- [x] package.json にtest-gui-layout.js追加（320テスト全通過確認）
+
 ## 次回作業内容（第6週残り）
-- GameScene.js の GUI 実装（Phaser3 で画面描画）
-  - 手牌・捨て牌・副露の表示
-  - ツモ・打牌・鳴き操作のUI
-  - 点数・役表示パネル
-- 最終デバッグ・完成
+- ResultScene.js の強化（最終順位・点数差・役統計表示）
+- 最終デバッグ・ブラウザ手動テスト・完成
 
 ## ファイル構造
 ```
@@ -177,7 +191,8 @@ mahjong-game/
 │   ├── test-meld.js        ✅ 52テスト
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
-│   └── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
+│   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
+│   └── test-gui-layout.js  ✅ 52テスト（第6週・レイアウト計算）
 └── src/
     ├── main.js
     ├── core/
@@ -194,8 +209,10 @@ mahjong-game/
     ├── ai/
     │   ├── AIBase.js    ✅ 定義完了
     │   └── AILevel3.js  ✅ 完全強化（ツモ和了・リーチ・守備・チョンボ防止）
+    ├── ui/
+    │   └── Layout.js       ✅ レイアウト計算（52テスト）
     └── scenes/
         ├── BootScene.js    ✅
-        ├── GameScene.js    🔄 スタブ（第6週実装予定）
+        ├── GameScene.js    ✅ フルGUI実装完了（第6週）
         └── ResultScene.js  ✅ 基本表示
 ```
