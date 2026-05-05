@@ -19,6 +19,24 @@
 ## 現在のフェーズ
 **第6週 - GUI・仕上げ（進行中）**
 
+## 午後セッション確認記録（2026-05-05）
+- 全テスト通過確認: 305/305 ✅ (14 + 24 + 52 + 85 + 88 + 5 + 37)
+- バグ修正: isIppatsu が即クリアされる問題（Player.discard() → Game.js側に移管）
+  - リーチ宣言直後の捨て牌でisIppatsuが消えていたバグを修正
+  - ポン/チー/明槓/暗槓/加槓でisIppatsuをキャンセルするロジックを追加
+  - this.turn > player.riichiTurn の条件で2回目の打牌にのみクリア
+- バグ修正: nextRound 親交代時に honba がリセットされない問題を修正（honba=0）
+- 新規テスト: tests/test-edge-cases.js（37テスト）
+  - ダブルリーチ判定・一発フラグライフサイクル・一時フリテン・供託蓄積
+  - nextRound（連荘/親交代/ゲーム終了）・processDiscardガード条件
+- 実装: GameScene.js GUI完全実装（Phaser3）
+  - 手牌/捨て牌/副露の描画（全4プレイヤー）
+  - 打牌クリック2回操作・ツモ/暗槓/加槓ボタン
+  - リーチボタン（テンパイ候補牌クリック時）
+  - 副露クレームUI（ロン/ポン/チー/明槓/パス）
+  - 局終了パネル（役・翻符・点数・スコア表示）・次局ボタン
+- 実装: ResultScene.js 対局結果画面（順位・点数差表示・再プレイ）
+
 ## 夕方セッション確認記録（2026-05-03）
 - 全テスト通過確認: 268/268 ✅ (14 + 24 + 52 + 85 + 88 + 5)
 - 1000局シミュレーション実行: チョンボ 6→0（バグ修正後）
@@ -157,13 +175,19 @@
 - [x] tests/test-simulation.js 作成（50ゲーム・268テスト全通過）
 - [x] processRon/processWin バグ修正（ダブルロン時の再帰二重実行チョンボ防止）
 - [x] 1000局シミュレーション実施・チョンボ0確認
+- [x] isIppatsu バグ修正（リーチ宣言直後に即クリアされる問題）
+- [x] 副露（ポン/チー/槓）でisIppatsuキャンセル処理追加
+- [x] nextRound 親交代時 honba=0 リセットバグ修正
+- [x] tests/test-edge-cases.js 作成（37テスト・305テスト全通過）
+- [x] GameScene.js GUI完全実装（手牌/捨て牌/副露/クレームUI/局終了パネル）
+- [x] ResultScene.js 対局結果画面実装（順位・点数差・再プレイ）
 
 ## 次回作業内容（第6週残り）
-- GameScene.js の GUI 実装（Phaser3 で画面描画）
-  - 手牌・捨て牌・副露の表示
-  - ツモ・打牌・鳴き操作のUI
-  - 点数・役表示パネル
-- 最終デバッグ・完成
+- GameScene.js の GUI 改良（ブラウザ実機テスト後）
+  - タイル画像アセット導入（現在はテキスト描画）
+  - チー時の面子選択UI（複数選択肢対応）
+  - アニメーション・SE追加（第6週制限で保留）
+- 最終デバッグ・完成確認
 
 ## ファイル構造
 ```
@@ -177,7 +201,8 @@ mahjong-game/
 │   ├── test-meld.js        ✅ 52テスト
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
-│   └── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
+│   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
+│   └── test-edge-cases.js  ✅ 37テスト（第6週午後・エッジケース）
 └── src/
     ├── main.js
     ├── core/
@@ -185,8 +210,8 @@ mahjong-game/
     │   ├── Wall.js      ✅ 完全実装
     │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
     │   ├── Meld.js      ✅ 完全実装
-    │   ├── Player.js    ✅ checkFuriten 完全実装
-    │   └── Game.js      ✅ 副露・カン・点数計算統合完成（_calculateWin）
+    │   ├── Player.js    ✅ checkFuriten 完全実装 / isIppatsu管理修正
+    │   └── Game.js      ✅ 副露・カン・点数計算統合完成 / isIppatsu・honbaバグ修正
     ├── logic/
     │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed export）
     │   ├── Score.js     ✅ 符計算・点数計算完全実装（第5週）
@@ -196,6 +221,6 @@ mahjong-game/
     │   └── AILevel3.js  ✅ 完全強化（ツモ和了・リーチ・守備・チョンボ防止）
     └── scenes/
         ├── BootScene.js    ✅
-        ├── GameScene.js    🔄 スタブ（第6週実装予定）
-        └── ResultScene.js  ✅ 基本表示
+        ├── GameScene.js    ✅ GUI完全実装（手牌/捨て牌/副露/クレームUI/局終了）
+        └── ResultScene.js  ✅ 対局結果画面（順位・点数差・再プレイ）
 ```
