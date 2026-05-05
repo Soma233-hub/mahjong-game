@@ -163,6 +163,12 @@ export class Game {
         this.lastDiscard       = tile;
         this.lastDiscardPlayer = playerIndex;
 
+        // リーチ済みプレイヤーの一発フラグ: リーチ宣言ターン以降の捨て牌でクリア
+        // (リーチ宣言直後の打牌は riichiTurn == this.turn なのでクリアしない)
+        if (player.isRiichi && this.turn > player.riichiTurn) {
+            player.isIppatsu = false;
+        }
+
         // リーチ中でなければフリテン再チェック
         if (!player.isRiichi) player.checkFuriten();
 
@@ -337,6 +343,9 @@ export class Game {
         player.hand.addMeld(meld, indices);
         player.isMenzen = false;
 
+        // 副露が入ったら全員の一発フラグをキャンセル
+        this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
+
         this.currentIndex = playerIndex;
         this.state = GAME_STATE.MELD_ACTION;
         this.emit('pon', { playerIndex, tile });
@@ -363,6 +372,9 @@ export class Game {
         const meld = new Meld(MELD_TYPE.CHI, meldTiles, this.lastDiscardPlayer, tile);
         player.hand.addMeld(meld, [ia, ib]);
         player.isMenzen = false;
+
+        // 副露が入ったら全員の一発フラグをキャンセル
+        this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.currentIndex = playerIndex;
         this.state = GAME_STATE.MELD_ACTION;
@@ -391,6 +403,9 @@ export class Game {
         player.hand.addMeld(meld, indices);
         player.isMenzen = false;
 
+        // 副露が入ったら全員の一発フラグをキャンセル
+        this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
+
         this.currentIndex = playerIndex;
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
@@ -416,6 +431,9 @@ export class Game {
         const meldTiles = indices.map(i => player.hand.tiles[i]);
         const meld = new Meld(MELD_TYPE.ANKAN, meldTiles, -1, null);
         player.hand.addMeld(meld, indices);
+
+        // 暗槓でも一発キャンセル（自分自身のみならず全員）
+        this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
@@ -444,6 +462,9 @@ export class Game {
             ponMeld.claimedTile,
         );
         player.hand.melds[meldIndex] = kakanMeld;
+
+        // 副露が入ったら全員の一発フラグをキャンセル
+        this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
@@ -597,6 +618,7 @@ export class Game {
         if (!dealerContinues) {
             this.dealerIndex = (this.dealerIndex + 1) % 4;
             this.round++;
+            this.honba = 0; // 親交代時は本場リセット
         } else {
             this.honba++;
         }

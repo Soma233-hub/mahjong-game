@@ -40,7 +40,6 @@ export class Player {
     discard(index) {
         const tile = this.hand.remove(index);
         this.discards.push(tile);
-        this.isIppatsu = false;
         return tile;
     }
 
