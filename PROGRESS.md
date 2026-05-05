@@ -19,6 +19,19 @@
 ## 現在のフェーズ
 **第6週 - GUI・仕上げ（進行中）**
 
+## 午前セッション確認記録（2026-05-05）
+- 全テスト通過確認: 480/480 ✅ (14 + 24 + 52 + 85 + 88 + 5 + 212)
+- 新規実装: src/ui/TileRenderer.js（牌ラベル・色・レイアウト・捨て牌位置 純粋関数ヘルパー）
+- 新規テスト: tests/test-ui-helpers.js（212テスト全通過）
+- 新規実装: GameScene.js 完全GUI実装
+  - 4人分手牌表示（人間=表向きクリック打牌, AI=裏向き）
+  - 捨て牌・副露描画（4方向レイアウト）
+  - 人間操作UI: 打牌クリック・ツモ・リーチ・暗槓・加槓ボタン
+  - 鳴きUI: ロン/ポン/チー/明槓/パス ボタン
+  - 局情報パネル: 局名・本場・供託・壁牌残り・各プレイヤー点数
+  - ドラ表示エリア
+  - 局終了オーバーレイ（役・翻数・符・点数・次局ボタン）
+
 ## 夕方セッション確認記録（2026-05-03）
 - 全テスト通過確認: 268/268 ✅ (14 + 24 + 52 + 85 + 88 + 5)
 - 1000局シミュレーション実行: チョンボ 6→0（バグ修正後）
@@ -145,6 +158,11 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
+## 第6週 品質チェックリスト
+- [x] 単体テストで主要ロジックが正常動作している（480/480通過）
+- [x] コンソールエラーがない
+- [x] GUI実装完了（手牌・捨て牌・副露・操作UI・情報パネル）
+
 ## 完了タスク（第6週）
 - [x] AILevel3 完全強化: ツモ和了前の役チェック（_hasYaku）
 - [x] AILevel3: リーチ宣言（門前テンパイ・非フリテン・1000点以上）
@@ -157,12 +175,13 @@
 - [x] tests/test-simulation.js 作成（50ゲーム・268テスト全通過）
 - [x] processRon/processWin バグ修正（ダブルロン時の再帰二重実行チョンボ防止）
 - [x] 1000局シミュレーション実施・チョンボ0確認
+- [x] src/ui/TileRenderer.js 作成（getTileLabel・getTileColor・getPlayerLayout・getDiscardPosition）
+- [x] tests/test-ui-helpers.js 作成（212テスト全通過）
+- [x] GameScene.js 完全GUI実装（手牌・捨て牌・副露・操作UI・鳴きUI・情報パネル・局終了表示）
 
 ## 次回作業内容（第6週残り）
-- GameScene.js の GUI 実装（Phaser3 で画面描画）
-  - 手牌・捨て牌・副露の表示
-  - ツモ・打牌・鳴き操作のUI
-  - 点数・役表示パネル
+- GameScene.js GUI 動作検証（ブラウザ実機テスト）
+- ResultScene.js 強化（順位・点差・役満演出）
 - 最終デバッグ・完成
 
 ## ファイル構造
@@ -177,7 +196,8 @@ mahjong-game/
 │   ├── test-meld.js        ✅ 52テスト
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
-│   └── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
+│   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
+│   └── test-ui-helpers.js  ✅ 212テスト（第6週・TileRendererヘルパー）
 └── src/
     ├── main.js
     ├── core/
@@ -194,8 +214,10 @@ mahjong-game/
     ├── ai/
     │   ├── AIBase.js    ✅ 定義完了
     │   └── AILevel3.js  ✅ 完全強化（ツモ和了・リーチ・守備・チョンボ防止）
+    ├── ui/
+    │   └── TileRenderer.js ✅ 純粋関数ヘルパー（第6週）
     └── scenes/
         ├── BootScene.js    ✅
-        ├── GameScene.js    🔄 スタブ（第6週実装予定）
+        ├── GameScene.js    ✅ 完全GUI実装（第6週）
         └── ResultScene.js  ✅ 基本表示
 ```
