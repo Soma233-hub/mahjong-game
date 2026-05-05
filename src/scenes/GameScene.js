@@ -1,4 +1,5 @@
 import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
+import { chiOptionLabel } from '../logic/chiLabel.js';
 
 // --- タイル描画定数 ---
 const TW = 38;  // タイル幅
@@ -385,9 +386,12 @@ export default class GameScene extends Phaser.Scene {
         if (options.canMinkan) addBtn('明槓',  0x335599, { action: 'minkan' });
         if (options.canChi) {
             const chiOpts = g.players[0].hand.findChiOptions(g.lastDiscard);
-            if (chiOpts.length > 0) {
-                addBtn('チー', 0x226644, { action: 'chi', tileIndices: chiOpts[0] });
-            }
+            chiOpts.forEach(tileIndices => {
+                const label = chiOptionLabel(
+                    g.players[0].hand.tiles, tileIndices, g.lastDiscard
+                );
+                addBtn(label, 0x226644, { action: 'chi', tileIndices });
+            });
         }
         addBtn('パス', 0x444444, { action: 'pass' });
 
