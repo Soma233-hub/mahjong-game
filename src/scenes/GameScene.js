@@ -34,8 +34,9 @@ export default class GameScene extends Phaser.Scene {
         this._claimButtons   = [];
         this._riichiBtn      = null;
 
-        this._selectedIdx       = -1;
-        this._riichiCandidates  = [];
+        this._selectedIdx           = -1;
+        this._riichiCandidates      = [];
+        this._lastDealerContinues   = false;
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -154,6 +155,14 @@ export default class GameScene extends Phaser.Scene {
         this._clearClaimButtons();
 
         const g = this.game_;
+
+        // 連荘判定: 親和了 or 流局 or チョンボは連荘
+        this._lastDealerContinues =
+            result === ROUND_RESULT.RYUUKYOKU ||
+            result === ROUND_RESULT.CHOMBO ||
+            ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) &&
+             winnerIndex === g.dealerIndex);
+
         let lines = [];
 
         if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
@@ -218,7 +227,8 @@ export default class GameScene extends Phaser.Scene {
         }
         this._selectedIdx = -1;
         this._hintTxt.setText('');
-        this._updateInfoTexts();
+        // 次局開始（連荘判定は _onRoundEnd で保存済み）
+        g.nextRound(this._lastDealerContinues);
     }
 
     // =====================================
@@ -385,9 +395,15 @@ export default class GameScene extends Phaser.Scene {
         if (options.canMinkan) addBtn('明槓',  0x335599, { action: 'minkan' });
         if (options.canChi) {
             const chiOpts = g.players[0].hand.findChiOptions(g.lastDiscard);
-            if (chiOpts.length > 0) {
-                addBtn('チー', 0x226644, { action: 'chi', tileIndices: chiOpts[0] });
-            }
+            chiOpts.forEach((indices) => {
+                const p0Tiles = g.players[0].hand.tiles;
+                const nums = [p0Tiles[indices[0]], p0Tiles[indices[1]], g.lastDiscard]
+                    .map(t => t.number)
+                    .sort((a, b) => a - b);
+                // 複数選択肢があれば牌番号を表示して区別できるようにする
+                const label = chiOpts.length > 1 ? `チー${nums.join('-')}` : 'チー';
+                addBtn(label, 0x226644, { action: 'chi', tileIndices: indices });
+            });
         }
         addBtn('パス', 0x444444, { action: 'pass' });
 
