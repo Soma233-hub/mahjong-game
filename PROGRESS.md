@@ -169,6 +169,9 @@
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
 ## 完了タスク（第6週）
+- [x] _onNextRound バグ修正（nextRound() 未呼び出し）
+- [x] 全プレイヤー初期描画補完（create / _onNextRound）
+- [x] チー複数選択肢UI対応
 - [x] AILevel3 完全強化: ツモ和了前の役チェック（_hasYaku）
 - [x] AILevel3: リーチ宣言（門前テンパイ・非フリテン・1000点以上）
 - [x] AILevel3: 守備判断（現物/筋/壁による安全度スコア計算）
@@ -187,10 +190,17 @@
 - [x] GameScene.js GUI完全実装（手牌/捨て牌/副露/クレームUI/局終了パネル）
 - [x] ResultScene.js 対局結果画面実装（順位・点数差・再プレイ）
 
+## 午前セッション確認記録（2026-05-06）
+- 全テスト通過確認: 305/305 ✅
+- バグ修正: _onNextRound で nextRound() 未呼び出し（次局に進めない致命的バグ）
+  - dealerContinues 判定追加（流局/チョンボ→連荘、親和了→連荘、子和了→親交代）
+- 改善: create() / _onNextRound で未描画プレイヤーの面伏せ手牌を補完描画
+- 改善: チー複数選択肢UI（findChiOptions が複数返す場合に個別ボタン表示）
+- GitHub PR #14 作成（fix/gamescene-next-round → main）
+
 ## 次回作業内容（第6週残り）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
-  - チー時の面子選択UI（複数選択肢対応）
   - アニメーション・SE追加（第6週制限で保留）
 - 最終デバッグ・完成確認
 
