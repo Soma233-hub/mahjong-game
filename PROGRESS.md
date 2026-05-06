@@ -19,6 +19,22 @@
 ## 現在のフェーズ
 **第6週 - GUI・仕上げ（進行中）**
 
+## 午後セッション確認記録（2026-05-06）
+- 全テスト通過確認: 333/333 ✅ (14 + 24 + 52 + 85 + 88 + 5 + 65)
+- バグ修正: GameScene._onNextRound() が g.nextRound() を呼んでいなかった致命的バグ
+  - 親継続判定ロジック実装（RON/TSUMO→勝者が親か・RYUUKYOKU→親テンパイか）
+  - _lastRoundResult に roundEnd データを保存
+- 機能改善: チー選択UIを複数候補対応に（chiOpts全候補をボタン表示）
+- Game.js改善: _processRyuukyoku が tenpaiPlayers を emit に含めるよう修正
+- 新規テスト: tests/test-edge-cases.js 37→65テスト（+28）
+  - processRon 正常和了スコア変化・点数保存則確認
+  - processRon 役なしCHOMBO判定検証
+  - processWin 親ツモ均等支払い・点数保存則
+  - processWin 非親ツモ 親>子支払い確認
+  - 流局 tenpaiPlayers 送出（空山→流局→テンパイ判定）
+  - 流局連荘 nextRound(true) 動作確認
+- PR #15 作成: fix/afternoon-session-2026-05-06
+
 ## 夕方セッション確認記録（2026-05-05）
 - 全テスト通過確認: 305/305 ✅ (14 + 24 + 52 + 85 + 88 + 5 + 37)
 - シミュレーション（50ゲーム）: ツモ67・ロン76・流局96・チョンボ0・保存則違反0
@@ -186,11 +202,14 @@
 - [x] tests/test-edge-cases.js 作成（37テスト・305テスト全通過）
 - [x] GameScene.js GUI完全実装（手牌/捨て牌/副露/クレームUI/局終了パネル）
 - [x] ResultScene.js 対局結果画面実装（順位・点数差・再プレイ）
+- [x] GameScene: _onNextRound致命的バグ修正（g.nextRound()呼び出し追加・親継続判定）
+- [x] GameScene: チー複数選択肢UI対応（全候補ボタン表示）
+- [x] Game: _processRyuukyoku に tenpaiPlayers 送出追加
+- [x] tests/test-edge-cases.js 拡充（37→65テスト・processRon/Win/CHOMBO/流局）
 
 ## 次回作業内容（第6週残り）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
-  - チー時の面子選択UI（複数選択肢対応）
   - アニメーション・SE追加（第6週制限で保留）
 - 最終デバッグ・完成確認
 
@@ -207,7 +226,7 @@ mahjong-game/
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   └── test-edge-cases.js  ✅ 37テスト（第6週午後・エッジケース）
+│   └── test-edge-cases.js  ✅ 65テスト（第6週午後・エッジケース拡充）
 └── src/
     ├── main.js
     ├── core/

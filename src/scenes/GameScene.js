@@ -36,6 +36,7 @@ export default class GameScene extends Phaser.Scene {
 
         this._selectedIdx       = -1;
         this._riichiCandidates  = [];
+        this._lastRoundResult   = null;
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -149,7 +150,9 @@ export default class GameScene extends Phaser.Scene {
         this._showClaimButtons(options);
     }
 
-    _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total }) {
+    _onRoundEnd(data) {
+        this._lastRoundResult = data;
+        const { result, winnerIndex, yakuResult, han, fu, total } = data;
         this._clearActionButtons();
         this._clearClaimButtons();
 
@@ -210,6 +213,17 @@ export default class GameScene extends Phaser.Scene {
             this.scene.start('ResultScene', { players: g.players });
             return;
         }
+
+        // 親継続判定（nextRound呼び出し前に現局状態から判定）
+        const { result, winnerIndex, tenpaiPlayers } = this._lastRoundResult || {};
+        let dealerContinues = false;
+        if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
+            dealerContinues = winnerIndex === g.dealerIndex;
+        } else if (result === ROUND_RESULT.RYUUKYOKU) {
+            dealerContinues = tenpaiPlayers?.includes(g.dealerIndex) ?? false;
+        }
+        // CHOMBO: dealerContinues = false（デフォルト）
+
         // 描画をクリア
         for (let i = 0; i < 4; i++) {
             this._clearGfxList(this._handGfxList[i]);
@@ -218,6 +232,7 @@ export default class GameScene extends Phaser.Scene {
         }
         this._selectedIdx = -1;
         this._hintTxt.setText('');
+        g.nextRound(dealerContinues);
         this._updateInfoTexts();
     }
 
@@ -385,9 +400,10 @@ export default class GameScene extends Phaser.Scene {
         if (options.canMinkan) addBtn('明槓',  0x335599, { action: 'minkan' });
         if (options.canChi) {
             const chiOpts = g.players[0].hand.findChiOptions(g.lastDiscard);
-            if (chiOpts.length > 0) {
-                addBtn('チー', 0x226644, { action: 'chi', tileIndices: chiOpts[0] });
-            }
+            chiOpts.forEach((opt, i) => {
+                const label = chiOpts.length === 1 ? 'チー' : `チー${i + 1}`;
+                addBtn(label, 0x226644, { action: 'chi', tileIndices: opt });
+            });
         }
         addBtn('パス', 0x444444, { action: 'pass' });
 

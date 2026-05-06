@@ -608,8 +608,11 @@ export class Game {
     }
 
     _processRyuukyoku() {
+        const tenpaiPlayers = this.players
+            .filter(p => p.hand.isTenpai())
+            .map(p => p.index);
         this.state = GAME_STATE.ROUND_END;
-        this.emit('roundEnd', { result: ROUND_RESULT.RYUUKYOKU });
+        this.emit('roundEnd', { result: ROUND_RESULT.RYUUKYOKU, tenpaiPlayers });
     }
 
     // --- 局回し ---
