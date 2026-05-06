@@ -348,6 +348,245 @@ console.log('\n[嶺上フラグ: _isRinshan]');
 }
 
 // ========================
+// processRon: 正常和了（スコア変化確認）
+// ========================
+console.log('\n[processRon: 正常和了 スコア変化]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.hand.tiles = []; p.discards = []; p.score = 25000; });
+    g.dealerIndex = 0;
+    g.honba = 0;
+    g.kyotaku = 0;
+    g.state = GAME_STATE.CLAIM;
+    g.currentIndex = 0;
+
+    // Player1 (非親) がロン: 2m2m 3m4m5m 3p4p5p 6p7p8p 4s5s → 3s待ち
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN, 2), new Tile(SUIT.MAN, 2),
+        new Tile(SUIT.MAN, 3), new Tile(SUIT.MAN, 4), new Tile(SUIT.MAN, 5),
+        new Tile(SUIT.PIN, 3), new Tile(SUIT.PIN, 4), new Tile(SUIT.PIN, 5),
+        new Tile(SUIT.PIN, 6), new Tile(SUIT.PIN, 7), new Tile(SUIT.PIN, 8),
+        new Tile(SUIT.SOU, 4), new Tile(SUIT.SOU, 5),
+    ]; // tanyao tenpai: 待ち=3s or 6s
+
+    const ronTile = new Tile(SUIT.SOU, 3); // 3s (Player0が捨てた想定)
+    g.lastDiscard = ronTile;
+    g.lastDiscardPlayer = 0;
+
+    const orig0 = g.players[0].score;
+    const orig1 = p1.score;
+    let roundEndResult = null;
+    g.on('roundEnd', d => { roundEndResult = d; });
+
+    g.processRon(1, 0);
+
+    assert(roundEndResult?.result === ROUND_RESULT.RON, 'processRon: RON イベント発火');
+    assert(p1.score > orig1, 'processRon: winner score 増加');
+    assert(g.players[0].score < orig0, 'processRon: discarder score 減少');
+    const winnerGain = p1.score - orig1;
+    const discarderLoss = orig0 - g.players[0].score;
+    assertEqual(winnerGain, discarderLoss, 'processRon: 点数保存則');
+    assert(g.state === GAME_STATE.ROUND_END, 'processRon: state=ROUND_END');
+    assertEqual(g.kyotaku, 0, 'processRon: kyotaku=0 にリセット');
+}
+
+// ========================
+// processRon: チョンボ（役なし手）
+// ========================
+console.log('\n[processRon: チョンボ（役なし）]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.hand.tiles = []; p.discards = []; p.score = 25000; });
+    g.dealerIndex = 0;
+    g.honba = 0;
+    g.kyotaku = 0;
+    g.state = GAME_STATE.CLAIM;
+
+    // Player0 役なしテンパイ: 1m2m3m 5p6p7p 2s3s4s 9m9m9m 6s (タンキ待ち=6s, 役なし)
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN, 1), new Tile(SUIT.MAN, 2), new Tile(SUIT.MAN, 3),
+        new Tile(SUIT.PIN, 5), new Tile(SUIT.PIN, 6), new Tile(SUIT.PIN, 7),
+        new Tile(SUIT.SOU, 2), new Tile(SUIT.SOU, 3), new Tile(SUIT.SOU, 4),
+        new Tile(SUIT.MAN, 9), new Tile(SUIT.MAN, 9), new Tile(SUIT.MAN, 9),
+        new Tile(SUIT.SOU, 6), // タンキ待ち6s（役なし: chanta不成立, 一通なし）
+    ];
+    // ロン牌 = 6s
+    const ronTile = new Tile(SUIT.SOU, 6);
+    g.lastDiscard = ronTile;
+    g.lastDiscardPlayer = 1;
+
+    const origScore = p0.score;
+    let roundEndChombo = null;
+    g.on('roundEnd', d => { roundEndChombo = d; });
+
+    g.processRon(0, 1);
+
+    assert(roundEndChombo?.result === ROUND_RESULT.CHOMBO, 'processRon 役なし → CHOMBO');
+    assertEqual(g.state, GAME_STATE.ROUND_END, 'CHOMBO: state=ROUND_END');
+    // 現在の実装ではCHOMBO時の点数ペナルティなし（点数変化しない）
+    assert(p0.score === origScore, 'CHOMBO: winner score 変化なし（現実装）');
+}
+
+// ========================
+// processWin: 親ツモ（点数保存則・全子均等支払い）
+// ========================
+console.log('\n[processWin: 親ツモ 点数保存則]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.hand.tiles = []; p.discards = []; p.score = 25000; });
+    g.dealerIndex = 0;
+    g.honba = 0;
+    g.kyotaku = 0;
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.currentIndex = 0;
+
+    // Player0 (親) ツモ和了: 2m2m 3m4m5m 3p4p5p 6p7p8p 4s5s6s（完成形・タンヤオ）
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN, 2), new Tile(SUIT.MAN, 2),
+        new Tile(SUIT.MAN, 3), new Tile(SUIT.MAN, 4), new Tile(SUIT.MAN, 5),
+        new Tile(SUIT.PIN, 3), new Tile(SUIT.PIN, 4), new Tile(SUIT.PIN, 5),
+        new Tile(SUIT.PIN, 6), new Tile(SUIT.PIN, 7), new Tile(SUIT.PIN, 8),
+        new Tile(SUIT.SOU, 4), new Tile(SUIT.SOU, 5), new Tile(SUIT.SOU, 6), // ツモ牌=6s
+    ];
+
+    const origScores = g.players.map(p => p.score);
+    let roundEndTsumo = null;
+    g.on('roundEnd', d => { roundEndTsumo = d; });
+
+    g.processWin(0);
+
+    assert(roundEndTsumo?.result === ROUND_RESULT.TSUMO, '親ツモ: TSUMO イベント発火');
+    assert(p0.score > origScores[0], '親ツモ: winner score 増加');
+    assert(g.players[1].score < origScores[1], '親ツモ: 子1 score 減少');
+    assert(g.players[2].score < origScores[2], '親ツモ: 子2 score 減少');
+    assert(g.players[3].score < origScores[3], '親ツモ: 子3 score 減少');
+    // 親ツモ: 子3人が均等支払い
+    assertEqual(g.players[1].score, g.players[2].score, '親ツモ: 子1=子2 均等支払い');
+    assertEqual(g.players[2].score, g.players[3].score, '親ツモ: 子2=子3 均等支払い');
+    // 点数保存則
+    const totalAfter = g.players.reduce((s, p) => s + p.score, 0);
+    assertEqual(totalAfter, 100000, '親ツモ: 点数保存則 100000点');
+}
+
+// ========================
+// processWin: 非親ツモ（親が多く支払う）
+// ========================
+console.log('\n[processWin: 非親ツモ 親>子支払い]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.hand.tiles = []; p.discards = []; p.score = 25000; });
+    g.dealerIndex = 0;
+    g.honba = 0;
+    g.kyotaku = 0;
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.currentIndex = 1;
+
+    // Player1 (非親) ツモ和了: 2m2m 3m4m5m 3p4p5p 6p7p8p 4s5s6s（タンヤオ完成）
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN, 2), new Tile(SUIT.MAN, 2),
+        new Tile(SUIT.MAN, 3), new Tile(SUIT.MAN, 4), new Tile(SUIT.MAN, 5),
+        new Tile(SUIT.PIN, 3), new Tile(SUIT.PIN, 4), new Tile(SUIT.PIN, 5),
+        new Tile(SUIT.PIN, 6), new Tile(SUIT.PIN, 7), new Tile(SUIT.PIN, 8),
+        new Tile(SUIT.SOU, 4), new Tile(SUIT.SOU, 5), new Tile(SUIT.SOU, 6),
+    ];
+
+    const origScores = g.players.map(p => p.score);
+    g.on('roundEnd', () => {});
+    g.processWin(1);
+
+    // 親 (Player0) は子 (Player2, Player3) より多く支払う
+    const dealerLoss = origScores[0] - g.players[0].score;
+    const nonDealerLoss2 = origScores[2] - g.players[2].score;
+    const nonDealerLoss3 = origScores[3] - g.players[3].score;
+    assert(dealerLoss > nonDealerLoss2, '非親ツモ: 親支払い > 子支払い (Player0>Player2)');
+    assertEqual(nonDealerLoss2, nonDealerLoss3, '非親ツモ: 子2=子3 均等支払い');
+    // 点数保存則
+    const totalAfter2 = g.players.reduce((s, p) => s + p.score, 0);
+    assertEqual(totalAfter2, 100000, '非親ツモ: 点数保存則 100000点');
+    assert(p1.score > origScores[1], '非親ツモ: winner score 増加');
+}
+
+// ========================
+// 流局: tenpaiPlayers の送出
+// ========================
+console.log('\n[流局: tenpaiPlayers 送出]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.hand.tiles = []; p.discards = []; p.score = 25000; });
+    g.dealerIndex = 0;
+    g.honba = 0;
+    g.kyotaku = 0;
+
+    // Player0: テンパイ（2m2m 3m4m5m 3p4p5p 6p7p8p 4s5s＋余牌1枚で打牌後13枚テンパイ）
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN, 2), new Tile(SUIT.MAN, 2),
+        new Tile(SUIT.MAN, 3), new Tile(SUIT.MAN, 4), new Tile(SUIT.MAN, 5),
+        new Tile(SUIT.PIN, 3), new Tile(SUIT.PIN, 4), new Tile(SUIT.PIN, 5),
+        new Tile(SUIT.PIN, 6), new Tile(SUIT.PIN, 7), new Tile(SUIT.PIN, 8),
+        new Tile(SUIT.SOU, 4), new Tile(SUIT.SOU, 5),
+        new Tile(SUIT.SOU, 9), // 14枚目: 打牌予定の浮き牌
+    ];
+
+    // Player1, 2, 3: 不聴（バラバラな孤立牌13枚ずつ）
+    const isoTiles = () => [
+        new Tile(SUIT.MAN, 1), new Tile(SUIT.MAN, 3), new Tile(SUIT.MAN, 5),
+        new Tile(SUIT.MAN, 7), new Tile(SUIT.MAN, 9),
+        new Tile(SUIT.PIN, 1), new Tile(SUIT.PIN, 3), new Tile(SUIT.PIN, 5),
+        new Tile(SUIT.SOU, 1), new Tile(SUIT.SOU, 3), new Tile(SUIT.SOU, 7),
+        new Tile(SUIT.SOU, 9), new Tile(SUIT.SOU, 5),
+    ];
+    g.players[1].hand.tiles = isoTiles();
+    g.players[2].hand.tiles = isoTiles();
+    g.players[3].hand.tiles = isoTiles();
+
+    // 山を空にする（次のツモで流局）
+    g.wall.tiles = [];
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.currentIndex = 0;
+
+    let ryuukyokuData = null;
+    g.on('roundEnd', d => { ryuukyokuData = d; });
+
+    // Player0がインデックス13（9s）を捨てる → nextTurn → empty wall → 流局
+    g.processDiscard(0, 13);
+
+    assert(ryuukyokuData?.result === ROUND_RESULT.RYUUKYOKU, '空山で流局イベント発火');
+    assert(Array.isArray(ryuukyokuData?.tenpaiPlayers), 'tenpaiPlayers が配列');
+    assert(ryuukyokuData?.tenpaiPlayers.includes(0), 'Player0(テンパイ) は tenpaiPlayers に含まれる');
+    assert(!ryuukyokuData?.tenpaiPlayers.includes(1), 'Player1(不聴) は tenpaiPlayers に含まれない');
+    assert(!ryuukyokuData?.tenpaiPlayers.includes(2), 'Player2(不聴) は tenpaiPlayers に含まれない');
+}
+
+// ========================
+// 流局: 親テンパイ → nextRound で連荘
+// ========================
+console.log('\n[流局: 親テンパイ → 連荘確認]');
+{
+    // _processRyuukyoku の tenpaiPlayers を確認し nextRound(true) で連荘を検証
+    const g = new Game({ allAI: true });
+    g.startGame();
+    g.state = GAME_STATE.ROUND_END;
+    const prevDealer = g.dealerIndex;
+    const prevRound  = g.round;
+
+    // dealerIndex が 0 のとき、親テンパイ想定で連荘
+    g.nextRound(true);
+
+    assertEqual(g.dealerIndex, prevDealer, '流局連荘: dealerIndex 変わらず');
+    assertEqual(g.round, prevRound, '流局連荘: round 変わらず');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);
