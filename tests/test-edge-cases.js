@@ -348,6 +348,122 @@ console.log('\n[嶺上フラグ: _isRinshan]');
 }
 
 // ========================
+// 天和・地和: Game._calculateWin フラグ連携
+// ========================
+
+// 共通テスト手牌: 1m2m3m 4m5m6m 7m8m 1p1p 2s3s4s + 9m(ツモ牌)
+// ピンフ形（両面待ち 7m8m に 9m）・門前 → 役満でなければ門前ツモ+ピンフ
+const _mk = (s, n) => new Tile(s, n);
+const _winningHand = () => [
+    _mk(SUIT.MAN,1), _mk(SUIT.MAN,2), _mk(SUIT.MAN,3),
+    _mk(SUIT.MAN,4), _mk(SUIT.MAN,5), _mk(SUIT.MAN,6),
+    _mk(SUIT.MAN,7), _mk(SUIT.MAN,8),
+    _mk(SUIT.PIN,1), _mk(SUIT.PIN,1),
+    _mk(SUIT.SOU,2), _mk(SUIT.SOU,3), _mk(SUIT.SOU,4),
+    _mk(SUIT.MAN,9),  // ツモ牌（最後尾）
+];
+
+console.log('\n[天和: 親が最初のツモ和了]');
+{
+    const g = new Game(); // Player0=人間（親）
+    g.startGame();
+    assertEqual(g.turn, 1, '天和テスト: turn===1');
+    assertEqual(g.dealerIndex, 0, '天和テスト: dealer===0');
+
+    g.players[0].hand.tiles = _winningHand();
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(0);
+
+    assert(roundEndData !== null, '天和: roundEndイベント発火');
+    assert(roundEndData.result === ROUND_RESULT.TSUMO, '天和: TSUMO結果');
+    assert(roundEndData.yakuResult?.isYakuman === true, '天和: 役満判定');
+    const yakuNames = (roundEndData.yakuResult?.yaku ?? []).map(y => y.name);
+    assert(yakuNames.includes('天和'), '天和: 天和役が含まれる');
+}
+
+console.log('\n[天和不成立: turn=2（親2回目ツモ）]');
+{
+    const g = new Game();
+    g.startGame();
+    g.turn = 2; // 天和不成立: 2ターン目
+
+    g.players[0].hand.tiles = _winningHand();
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(0);
+
+    assert(roundEndData !== null, '天和不成立: roundEnd発火');
+    assert(roundEndData.yakuResult?.isYakuman !== true, '天和不成立: turn=2は役満でない');
+    const yakuNames = (roundEndData.yakuResult?.yaku ?? []).map(y => y.name);
+    assert(!yakuNames.includes('天和'), '天和不成立: 天和役は含まれない');
+}
+
+console.log('\n[地和: 子（Player1）が最初のツモ和了（副露なし）]');
+{
+    const g = new Game();
+    g.startGame();
+    // Player1の最初のツモは turn=2
+    g.turn = 2;
+    g.currentIndex = 1;
+    g.state = GAME_STATE.PLAYER_ACTION;
+
+    g.players[1].hand.tiles = _winningHand();
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(1);
+
+    assert(roundEndData !== null, '地和: roundEnd発火');
+    assert(roundEndData.result === ROUND_RESULT.TSUMO, '地和: TSUMO結果');
+    assert(roundEndData.yakuResult?.isYakuman === true, '地和: 役満判定');
+    const yakuNames = (roundEndData.yakuResult?.yaku ?? []).map(y => y.name);
+    assert(yakuNames.includes('地和'), '地和: 地和役が含まれる');
+}
+
+console.log('\n[地和不成立: 副露発生後]');
+{
+    const g = new Game();
+    g.startGame();
+    g.turn = 2;
+    g.currentIndex = 1;
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g._meldOccurred = true; // 副露発生済みに設定
+
+    g.players[1].hand.tiles = _winningHand();
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(1);
+
+    assert(roundEndData !== null, '地和不成立: roundEnd発火');
+    assert(roundEndData.yakuResult?.isYakuman !== true, '地和不成立: 副露後は役満でない');
+    const yakuNames = (roundEndData.yakuResult?.yaku ?? []).map(y => y.name);
+    assert(!yakuNames.includes('地和'), '地和不成立: 副露後は地和なし');
+}
+
+console.log('\n[地和不成立: ターンが違う（2回目以降のツモ）]');
+{
+    const g = new Game();
+    g.startGame();
+    g.turn = 5; // Player1の2回目以降のツモ
+    g.currentIndex = 1;
+    g.state = GAME_STATE.PLAYER_ACTION;
+
+    g.players[1].hand.tiles = _winningHand();
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(1);
+
+    assert(roundEndData !== null, '地和不成立(遅いターン): roundEnd発火');
+    const yakuNames = (roundEndData.yakuResult?.yaku ?? []).map(y => y.name);
+    assert(!yakuNames.includes('地和'), '地和不成立(遅いターン): ターン違いは地和なし');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);

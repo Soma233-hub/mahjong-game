@@ -51,6 +51,7 @@ export class Game {
         this.lastDiscardPlayer = -1;
 
         this._isRinshan   = false; // 嶺上開花フラグ
+        this._meldOccurred = false; // 天和・地和の無効化フラグ
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -91,6 +92,7 @@ export class Game {
 
         this.currentIndex = this.dealerIndex;
         this.turn = 0;
+        this._meldOccurred = false;
         this.state = GAME_STATE.DRAW;
         this._processDraw();
     }
@@ -342,6 +344,7 @@ export class Game {
         const meld = new Meld(MELD_TYPE.PON, meldTiles, this.lastDiscardPlayer, tile);
         player.hand.addMeld(meld, indices);
         player.isMenzen = false;
+        this._meldOccurred = true;
 
         // 副露が入ったら全員の一発フラグをキャンセル
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
@@ -372,6 +375,7 @@ export class Game {
         const meld = new Meld(MELD_TYPE.CHI, meldTiles, this.lastDiscardPlayer, tile);
         player.hand.addMeld(meld, [ia, ib]);
         player.isMenzen = false;
+        this._meldOccurred = true;
 
         // 副露が入ったら全員の一発フラグをキャンセル
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
@@ -402,6 +406,7 @@ export class Game {
         const meld = new Meld(MELD_TYPE.MINKAN, meldTiles, this.lastDiscardPlayer, tile);
         player.hand.addMeld(meld, indices);
         player.isMenzen = false;
+        this._meldOccurred = true;
 
         // 副露が入ったら全員の一発フラグをキャンセル
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
@@ -431,6 +436,7 @@ export class Game {
         const meldTiles = indices.map(i => player.hand.tiles[i]);
         const meld = new Meld(MELD_TYPE.ANKAN, meldTiles, -1, null);
         player.hand.addMeld(meld, indices);
+        this._meldOccurred = true;
 
         // 暗槓でも一発キャンセル（自分自身のみならず全員）
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
@@ -462,6 +468,7 @@ export class Game {
             ponMeld.claimedTile,
         );
         player.hand.melds[meldIndex] = kakanMeld;
+        this._meldOccurred = true;
 
         // 副露が入ったら全員の一発フラグをキャンセル
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
@@ -546,6 +553,17 @@ export class Game {
         const seatWind = winner.getSeatWind(this.dealerIndex) + 1; // 1=東…4=北
         const winTile  = winner.hand.tiles[winner.hand.tiles.length - 1];
 
+        // 天和: 親が最初のツモ（turn=1）・嶺上でない・副露なし
+        const isTenhou = isTsumo && !this._isRinshan &&
+            winnerIndex === this.dealerIndex &&
+            this.turn === 1 && !this._meldOccurred;
+        // 地和: 子が自分の最初のツモターンに和了・嶺上でない・副露なし
+        const firstDrawTurn = (winnerIndex - this.dealerIndex + 4) % 4 + 1;
+        const isChiihou = isTsumo && !this._isRinshan &&
+            winnerIndex !== this.dealerIndex &&
+            !this._meldOccurred &&
+            this.turn === firstDrawTurn;
+
         const context = {
             isTsumo,
             isRiichi:       winner.isRiichi,
@@ -557,8 +575,8 @@ export class Game {
             isHoutei:       !isTsumo && this.wall.isEmpty(),
             isRinshan:      this._isRinshan,
             isChankan:      false,
-            isTenhou:       false,
-            isChiihou:      false,
+            isTenhou,
+            isChiihou,
         };
 
         const yakuResult = evaluateYaku(winner.hand, winTile, context);
