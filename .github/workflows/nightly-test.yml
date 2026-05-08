@@ -1,0 +1,110 @@
+name: 夜間自動テスト・進捗レポート
+
+on:
+  schedule:
+    - cron: '0 14 * * 1-5'  # UTC 14:00 = JST 23:00（平日のみ）
+  workflow_dispatch:          # 手動実行も可能
+
+jobs:
+  test-and-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 依存パッケージインストール
+        run: npm install
+
+      - name: テスト実行
+        id: test
+        run: |
+          npm test 2>&1 | tee test_output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: テスト結果を読み込み
+        id: result
+        run: |
+          OUTPUT=$(cat test_output.txt)
+          # テスト通過数を抽出
+          PASSED=$(grep -oP '\d+(?= passing)' test_output.txt | tail -1 || echo "不明")
+          FAILED=$(grep -oP '\d+(?= failing)' test_output.txt | tail -1 || echo "0")
+          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+          echo "failed=${FAILED}" >> $GITHUB_OUTPUT
+          # 複数行出力のエスケープ
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "${OUTPUT}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 成功時：Issue作成
+        if: steps.test.outputs.exit_code == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date().toLocaleDateString('ja-JP', {
+              timeZone: 'Asia/Tokyo',
+              year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const passed = '${{ steps.result.outputs.passed }}';
+            const output = `${{ steps.result.outputs.output }}`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[夜間レポート] ${today} - ✅ 全テスト通過 (${passed} tests)`,
+              body: [
+                '## 夜間自動テスト結果',
+                '',
+                `- **実行日時**: ${today} 23:00 JST`,
+                `- **結果**: ✅ 全テスト通過`,
+                `- **通過数**: ${passed} tests`,
+                '',
+                '## テスト出力',
+                '```',
+                output.slice(0, 3000),
+                '```',
+                '',
+                '> 🤖 GitHub Actions による自動レポート'
+              ].join('\n'),
+              labels: ['weekly-report', 'report']
+            });
+
+      - name: 失敗時：Issue作成（バグアラート）
+        if: steps.test.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date().toLocaleDateString('ja-JP', {
+              timeZone: 'Asia/Tokyo',
+              year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const passed = '${{ steps.result.outputs.passed }}';
+            const failed = '${{ steps.result.outputs.failed }}';
+            const output = `${{ steps.result.outputs.output }}`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[夜間レポート] ${today} - ❌ テスト失敗 (${failed} failing)`,
+              body: [
+                '## ⚠️ 夜間自動テスト失敗',
+                '',
+                `- **実行日時**: ${today} 23:00 JST`,
+                `- **結果**: ❌ テスト失敗`,
+                `- **通過**: ${passed} tests`,
+                `- **失敗**: ${failed} tests`,
+                '',
+                '## テスト出力（失敗箇所）',
+                '```',
+                output.slice(0, 3000),
+                '```',
+                '',
+                '> 🤖 GitHub Actions による自動レポート'
+              ].join('\n'),
+              labels: ['bug', 'report']
+            });
