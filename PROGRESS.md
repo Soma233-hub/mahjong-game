@@ -19,6 +19,27 @@
 ## 現在のフェーズ
 **第6週 - GUI・仕上げ（進行中）**
 
+## 夕方セッション確認記録（2026-05-09）
+- 全テスト通過確認: 313/313 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40)
+- シミュレーション（50ゲーム）: ツモ61・ロン69・流局99・チョンボ0・クラッシュ0・保存則違反0（229ラウンド）
+- GitHub Issue #19 作成（週次レポート 2026-05-09）
+
+## 午前セッション確認記録（2026-05-09）
+- 全テスト通過確認: 313/313 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40)
+- シミュレーション（50ゲーム）: ツモ66・ロン73・流局108・チョンボ0・クラッシュ0・保存則違反0
+- バグ修正①（Critical）: Hand._normalShanten() が副露K枚あるとき誤った向聴数を返す問題
+  - 式のベースを `8` 固定から `8 - 2*K` に変更（K=副露枚数）
+  - limit 計算を `4 - mentsu` から `4 - K - mentsu` に修正
+  - これにより ポン/チーした手牌が一切和了できなかった致命的バグを修正
+- バグ修正②（UX）: Game._canRon() が役なしでも true を返す問題
+  - `_checkPlayerHasYaku(player, winTile, isTsumo)` ヘルパーを Game.js に追加
+  - `_canRon` でロン牌の役確認を実施（役なし手牌にロンボタンが表示されなくなる）
+  - AILevel3.selectClaimAction と同等の役チェックをゲーム層に移管
+- 新規テスト: tests/test-hand.js に副露手牌向聴数テスト5件追加
+  - K=1/K=2 副露後の isComplete(), isTenpai(), getWaitingTileIds() 検証
+- 新規テスト: tests/test-edge-cases.js に _canRon 役チェックテスト3件追加
+  - 役なし開き手テンパイ → false, タンヤオ開き手 → true, リーチ閉じ手 → true
+
 ## 夜セッション確認記録（2026-05-06）
 - 全テスト通過確認: 305/305 ✅ (14 + 24 + 52 + 85 + 88 + 5 + 37)
 - シミュレーション（50ゲーム）: ツモ64・ロン83・流局92・チョンボ0・エラー0・総局数239
@@ -202,22 +223,10 @@
 - [x] tests/test-edge-cases.js 作成（37テスト・305テスト全通過）
 - [x] GameScene.js GUI完全実装（手牌/捨て牌/副露/クレームUI/局終了パネル）
 - [x] ResultScene.js 対局結果画面実装（順位・点数差・再プレイ）
-
-## 午前セッション確認記録（2026-05-09）
-- 全テスト通過確認: 313/313 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40)
-- シミュレーション（50ゲーム）: ツモ66・ロン73・流局108・チョンボ0・クラッシュ0・保存則違反0
-- バグ修正①（Critical）: Hand._normalShanten() が副露K枚あるとき誤った向聴数を返す問題
-  - 式のベースを `8` 固定から `8 - 2*K` に変更（K=副露枚数）
-  - limit 計算を `4 - mentsu` から `4 - K - mentsu` に修正
-  - これにより ポン/チーした手牌が一切和了できなかった致命的バグを修正
-- バグ修正②（UX）: Game._canRon() が役なしでも true を返す問題
-  - `_checkPlayerHasYaku(player, winTile, isTsumo)` ヘルパーを Game.js に追加
-  - `_canRon` でロン牌の役確認を実施（役なし手牌にロンボタンが表示されなくなる）
-  - AILevel3.selectClaimAction と同等の役チェックをゲーム層に移管
-- 新規テスト: tests/test-hand.js に副露手牌向聴数テスト5件追加
-  - K=1/K=2 副露後の isComplete(), isTenpai(), getWaitingTileIds() 検証
-- 新規テスト: tests/test-edge-cases.js に _canRon 役チェックテスト3件追加
-  - 役なし開き手テンパイ → false, タンヤオ開き手 → true, リーチ閉じ手 → true
+- [x] Hand._normalShanten() 副露K枚対応バグ修正（`8-2*K` ベース・`4-K-mentsu` limit）
+- [x] Game._canRon() 無役ロンボタン表示バグ修正（`_checkPlayerHasYaku` ヘルパー追加）
+- [x] tests/test-hand.js 副露手牌向聴数テスト5件追加（313テスト全通過）
+- [x] tests/test-edge-cases.js _canRon役チェックテスト3件追加
 
 ## 次回作業内容（第6週残り）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
