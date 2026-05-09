@@ -77,13 +77,13 @@
 - 勝利分布: ツモ28%・ロン29%・流局43%（現実的）
 
 ## 夕方セッション確認記録（2026-05-02）
-- 全テスト通過確認: 266/266 ✅ (14 + 27 + 52 + 85 + 88)
+- 全テスト通過確認: 266/266 ✅ (14 + 24 + 52 + 85 + 88)
 - シミュレーションテスト: 未実装（第6週以降）
 - 発見バグ: package.json に test-score.js が含まれていなかった → 修正済み
 - GitHub Issue #5 作成（週次レポート 2026-05-02）
 
 ## 午後セッション確認記録（2026-05-02）
-- 全テスト通過確認: 266/266 ✅ (14 + 27 + 52 + 85 + 88)
+- 全テスト通過確認: 266/266 ✅ (14 + 24 + 52 + 85 + 88)
 - 第5週完了: 点数計算・符計算・Game.js統合
 - 新規実装: Score.calculateFu(), Score.calculateScore(), basicPoints()修正, Game._calculateWin()
 - テスト数: 88テスト (tests/test-score.js)
@@ -91,7 +91,7 @@
 - decomposeClosed export追加（Yaku.js → Score.js で利用）
 
 ## 土曜日セッション確認記録（2026-05-02）
-- 全テスト通過確認: 178/178 ✅ (14 + 27 + 52 + 85)
+- 全テスト通過確認: 178/178 ✅ (14 + 24 + 52 + 85)
 - 第4週完了: 役判定ロジック全役実装
 - 新規実装: Hand.isComplete(), decomposeClosed(), 全役判定関数, evaluateYaku()
 - テスト数: 85テスト (tests/test-yaku.js)
@@ -203,6 +203,22 @@
 - [x] GameScene.js GUI完全実装（手牌/捨て牌/副露/クレームUI/局終了パネル）
 - [x] ResultScene.js 対局結果画面実装（順位・点数差・再プレイ）
 
+## 午前セッション確認記録（2026-05-09）
+- 全テスト通過確認: 313/313 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40)
+- シミュレーション（50ゲーム）: ツモ66・ロン73・流局108・チョンボ0・クラッシュ0・保存則違反0
+- バグ修正①（Critical）: Hand._normalShanten() が副露K枚あるとき誤った向聴数を返す問題
+  - 式のベースを `8` 固定から `8 - 2*K` に変更（K=副露枚数）
+  - limit 計算を `4 - mentsu` から `4 - K - mentsu` に修正
+  - これにより ポン/チーした手牌が一切和了できなかった致命的バグを修正
+- バグ修正②（UX）: Game._canRon() が役なしでも true を返す問題
+  - `_checkPlayerHasYaku(player, winTile, isTsumo)` ヘルパーを Game.js に追加
+  - `_canRon` でロン牌の役確認を実施（役なし手牌にロンボタンが表示されなくなる）
+  - AILevel3.selectClaimAction と同等の役チェックをゲーム層に移管
+- 新規テスト: tests/test-hand.js に副露手牌向聴数テスト5件追加
+  - K=1/K=2 副露後の isComplete(), isTenpai(), getWaitingTileIds() 検証
+- 新規テスト: tests/test-edge-cases.js に _canRon 役チェックテスト3件追加
+  - 役なし開き手テンパイ → false, タンヤオ開き手 → true, リーチ閉じ手 → true
+
 ## 次回作業内容（第6週残り）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
@@ -216,22 +232,22 @@ mahjong-game/
 ├── package.json          ← "test" スクリプト追加
 ├── PROGRESS.md
 ├── tests/
-│   ├── test-hand.js        ✅ 14テスト
+│   ├── test-hand.js        ✅ 19テスト
 │   ├── test-game-flow.js   ✅ 24テスト
 │   ├── test-meld.js        ✅ 52テスト
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   └── test-edge-cases.js  ✅ 37テスト（第6週午後・エッジケース）
+│   └── test-edge-cases.js  ✅ 40テスト（第6週・エッジケース）
 └── src/
     ├── main.js
     ├── core/
     │   ├── Tile.js      ✅ 完全実装
     │   ├── Wall.js      ✅ 完全実装
-    │   ├── Hand.js      ✅ 向聴数・有効牌・待ち牌 検証済み
+    │   ├── Hand.js      ✅ 副露K枚対応向聴数バグ修正済み
     │   ├── Meld.js      ✅ 完全実装
     │   ├── Player.js    ✅ checkFuriten 完全実装 / isIppatsu管理修正
-    │   └── Game.js      ✅ 副露・カン・点数計算統合完成 / isIppatsu・honbaバグ修正
+    │   └── Game.js      ✅ 副露・カン・点数計算統合完成 / _canRon役チェック追加
     ├── logic/
     │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed export）
     │   ├── Score.js     ✅ 符計算・点数計算完全実装（第5週）

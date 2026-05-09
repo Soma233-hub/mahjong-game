@@ -189,10 +189,35 @@ export class Game {
 
     // --- 副露処理 ---
 
-    // 他家の捨て牌に対してロン可能か（構造的チェック、役判定は第4週）
     _canRon(player, tile) {
         if (player.isFuriten || player.isTemporaryFuriten) return false;
-        return player.hand.getWaitingTileIds().includes(tile.id);
+        if (!player.hand.getWaitingTileIds().includes(tile.id)) return false;
+        // 役チェック（無役チョンボ防止）
+        player.hand.tiles.push(tile);
+        const hasYaku = this._checkPlayerHasYaku(player, tile, false);
+        player.hand.tiles.pop();
+        return hasYaku;
+    }
+
+    // ロン/ツモ前の役有無確認（AI共有ロジック）
+    _checkPlayerHasYaku(player, winTile, isTsumo) {
+        const seatWind = player.getSeatWind(this.dealerIndex) + 1;
+        const context = {
+            isTsumo,
+            isRiichi:       player.isRiichi,
+            isDoubleRiichi: player.isDoubleRiichi,
+            isIppatsu:      player.isIppatsu,
+            seatWind,
+            roundWind:      1,
+            isHaitei:       isTsumo  && this.wall.isEmpty(),
+            isHoutei:       !isTsumo && this.wall.isEmpty(),
+            isRinshan:      this._isRinshan,
+            isChankan:      false,
+            isTenhou:       false,
+            isChiihou:      false,
+        };
+        const { yaku, isYakuman } = evaluateYaku(player.hand, winTile, context);
+        return isYakuman || yaku.length > 0;
     }
 
     _canPon(player, tile) {

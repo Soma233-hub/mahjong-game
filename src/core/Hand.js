@@ -76,8 +76,9 @@ export class Hand {
     }
 
     _normalShanten() {
+        const K = this.melds.length; // 既存副露数（各1面子として計算）
         const counts = this._tileCounts();
-        let best = 8;
+        let best = 8 - 2 * K; // 残り必要面子数に合わせてベースを調整
 
         const dfs = (cnt, mentsu, jantai) => {
             // 搭子カウント（cnt[id]>0 の牌だけ対象）
@@ -89,10 +90,10 @@ export class Hand {
                 if (s < 3 && id % 9 < 8 && cnt[id + 1] > 0) partial++;
                 else if (s < 3 && id % 9 < 7 && cnt[id + 2] > 0) partial++;
             }
-            // 面子+搭子の上限は4（雀頭有無で変わる）
-            const limit = 4 - mentsu;
-            if (partial + mentsu > 4) partial = 4 - mentsu;
-            const s = 8 - 2 * mentsu - jantai - Math.min(partial, limit);
+            // 面子+搭子の上限は残り必要面子数 (4 - K - 閉牌面子)
+            const limit = 4 - K - mentsu;
+            if (partial > limit) partial = limit;
+            const s = (8 - 2 * K) - 2 * mentsu - jantai - partial;
             best = Math.min(best, s);
 
             for (let id = 0; id < 34; id++) {

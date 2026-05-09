@@ -12,6 +12,7 @@ import { Player } from '../src/core/Player.js';
 import { Tile, SUIT } from '../src/core/Tile.js';
 import { AILevel3 } from '../src/ai/AILevel3.js';
 import { Hand } from '../src/core/Hand.js';
+import { Meld, MELD_TYPE } from '../src/core/Meld.js';
 
 let passed = 0;
 let failed = 0;
@@ -345,6 +346,114 @@ console.log('\n[嶺上フラグ: _isRinshan]');
     g.startGame();
     // 初回ツモ後は _isRinshan=false のはず
     assert(!g._isRinshan, '通常ツモ後は _isRinshan=false');
+}
+
+// ========================
+// _canRon: 役なし開き手テンパイ → false
+// ========================
+console.log('\n[_canRon: 役なし開き手テンパイ → ロン不可]');
+{
+    // Player1(南家): ポン北(字牌・南家なので役なし) + 純全帯なし手
+    // 閉牌: 2m3m4m 6p7p8p 4s5s 3z3z (10枚)
+    //   - 2m3m4m/6p7p8p: 異なるスートの順子 → 一気通貫・三色なし
+    //   - 北ポン(役牌なし) + 西(3z)雀頭(役牌なし) → 役なし
+    //   - タンヤオ不可(北・西の字牌含む)
+    // startGame を使わず直接ゲーム状態を組み立て（自動進行による状態汚染を防ぐ）
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.state = GAME_STATE.CLAIM;
+    g.dealerIndex = 0;
+    g.lastDiscardPlayer = 0;
+
+    const p1 = g.players[1]; // 南家(seatWind=1 → getSeatWind(0)+1=2)
+    p1.isRiichi = false;
+    p1.isFuriten = false;
+    p1.isTemporaryFuriten = false;
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.PIN,6), new Tile(SUIT.PIN,7), new Tile(SUIT.PIN,8),
+        new Tile(SUIT.SOU,4), new Tile(SUIT.SOU,5),
+        new Tile(SUIT.HONOR,3), new Tile(SUIT.HONOR,3), // 西(3z)雀頭
+    ];
+    p1.hand.melds = [new Meld(MELD_TYPE.PON, [
+        new Tile(SUIT.HONOR,4), new Tile(SUIT.HONOR,4), new Tile(SUIT.HONOR,4),
+    ], 0, new Tile(SUIT.HONOR,4))];
+    p1.isMenzen = false;
+
+    const discardTile = new Tile(SUIT.SOU, 6); // 4s5s → 6s待ち
+    g.lastDiscard = discardTile;
+
+    const canRon = g._canRon(p1, discardTile);
+    assert(!canRon, '役なし開き手テンパイ → _canRon=false（無役チョンボ防止）');
+}
+
+// ========================
+// _canRon: タンヤオ開き手テンパイ → true
+// ========================
+console.log('\n[_canRon: タンヤオ開き手テンパイ → ロン可]');
+{
+    // Player1: ポン5m(中張牌) + 全中張牌の閉牌
+    // 閉牌: 3m4m5m 7m8m 3p4p5p 2s2s (10枚) → 6mか9m待ち
+    // タンヤオ: 全て2-8の中張牌 ✓
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.state = GAME_STATE.CLAIM;
+    g.dealerIndex = 0;
+    g.lastDiscardPlayer = 0;
+
+    const p1 = g.players[1];
+    p1.isRiichi = false;
+    p1.isFuriten = false;
+    p1.isTemporaryFuriten = false;
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8),
+        new Tile(SUIT.PIN,3), new Tile(SUIT.PIN,4), new Tile(SUIT.PIN,5),
+        new Tile(SUIT.SOU,2), new Tile(SUIT.SOU,2),
+    ];
+    p1.hand.melds = [new Meld(MELD_TYPE.PON, [
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,5),
+    ], 0, new Tile(SUIT.MAN,5))];
+    p1.isMenzen = false;
+
+    const discardTile = new Tile(SUIT.MAN, 6); // 7m8m → 6mか9m待ち
+    g.lastDiscard = discardTile;
+
+    const canRon = g._canRon(p1, discardTile);
+    assert(canRon, 'タンヤオ開き手テンパイ → _canRon=true');
+}
+
+// ========================
+// _canRon: リーチ閉じ手テンパイ → true（リーチ役あり）
+// ========================
+console.log('\n[_canRon: リーチ閉じ手テンパイ → ロン可]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.state = GAME_STATE.CLAIM;
+    g.dealerIndex = 0;
+    g.lastDiscardPlayer = 2;
+
+    const p0 = g.players[0];
+    // 13枚テンパイ: 1m2m3m 4m5m6m 7m8m9m 1p2p 5s5s → 3p待ち
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,5),
+    ];
+    p0.hand.melds = [];
+    p0.isRiichi = true;
+    p0.isFuriten = false;
+    p0.isTemporaryFuriten = false;
+    p0.isMenzen = true;
+
+    const discardTile = new Tile(SUIT.PIN, 3);
+    g.lastDiscard = discardTile;
+
+    const canRon = g._canRon(p0, discardTile);
+    assert(canRon, 'リーチ閉じ手テンパイ → _canRon=true（リーチ役あり）');
 }
 
 // ========================

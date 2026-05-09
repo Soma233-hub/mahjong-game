@@ -4,6 +4,7 @@
  */
 import { Tile, SUIT } from '../src/core/Tile.js';
 import { Hand } from '../src/core/Hand.js';
+import { Meld, MELD_TYPE } from '../src/core/Meld.js';
 
 let passed = 0;
 let failed = 0;
@@ -134,6 +135,93 @@ console.log('\n[有効牌・待ち牌]');
     const waits = h.getWaitingTileIds();
     // 3p のid: pin=9, 3p → 9+2=11
     assert(waits.includes(11), '待ち牌に3p(id=11)が含まれる');
+}
+
+// ========================
+// 副露あり手牌の向聴数（K>=1 のシャンテン補正）
+// ========================
+console.log('\n[副露あり手牌の向聴数]');
+{
+    // K=1 ポン後: 11閉牌で3面子+1雀頭 → isComplete()=true
+    // ポン牌: 8m×3, 閉牌: 3m4m5m 6m7m8m 3p4p5p 2s2s (11枚)
+    const h = new Hand();
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,8)],
+        0, new Tile(SUIT.MAN,8)));
+    for (const [s,n] of [[SUIT.MAN,3],[SUIT.MAN,4],[SUIT.MAN,5],
+                          [SUIT.MAN,6],[SUIT.MAN,7],[SUIT.MAN,8],
+                          [SUIT.PIN,3],[SUIT.PIN,4],[SUIT.PIN,5],
+                          [SUIT.SOU,2],[SUIT.SOU,2]]) {
+        h.tiles.push(new Tile(s, n));
+    }
+    assert(h.isComplete(), 'K=1 副露後 11閉牌 3面子+雀頭 → isComplete()=true');
+}
+{
+    // K=1 ポン後: 10閉牌でテンパイ → isTenpai()=true
+    // ポン牌: 8m×3, 閉牌: 3m4m5m 7m8m 3p4p5p 2s2s (10枚, 6mか9mを待つ)
+    const h = new Hand();
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,8)],
+        0, new Tile(SUIT.MAN,8)));
+    for (const [s,n] of [[SUIT.MAN,3],[SUIT.MAN,4],[SUIT.MAN,5],
+                          [SUIT.MAN,7],[SUIT.MAN,8],
+                          [SUIT.PIN,3],[SUIT.PIN,4],[SUIT.PIN,5],
+                          [SUIT.SOU,2],[SUIT.SOU,2]]) {
+        h.tiles.push(new Tile(s, n));
+    }
+    assert(h.isTenpai(), 'K=1 副露後 10閉牌 テンパイ形 → isTenpai()=true');
+}
+{
+    // K=1 ポン後 テンパイ: 待ち牌(6mまたは9m)が正しく検出される
+    const h = new Hand();
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,8)],
+        0, new Tile(SUIT.MAN,8)));
+    for (const [s,n] of [[SUIT.MAN,3],[SUIT.MAN,4],[SUIT.MAN,5],
+                          [SUIT.MAN,7],[SUIT.MAN,8],
+                          [SUIT.PIN,3],[SUIT.PIN,4],[SUIT.PIN,5],
+                          [SUIT.SOU,2],[SUIT.SOU,2]]) {
+        h.tiles.push(new Tile(s, n));
+    }
+    const waits = h.getWaitingTileIds();
+    const id6m = new Tile(SUIT.MAN, 6).id; // man6 = id 5
+    const id9m = new Tile(SUIT.MAN, 9).id; // man9 = id 8
+    assert(waits.includes(id6m) || waits.includes(id9m),
+        `K=1 副露後テンパイ: 待ち牌6m(id=${id6m})か9m(id=${id9m})が含まれる`);
+}
+{
+    // K=2 ポン×2後: 8閉牌で2面子+1雀頭 → isComplete()=true
+    // ポン×2: 8m, 9m, 閉牌: 3m4m5m 3p4p5p 7s7s (8枚)
+    const h = new Hand();
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,8),new Tile(SUIT.MAN,8),new Tile(SUIT.MAN,8)],
+        0, new Tile(SUIT.MAN,8)));
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,9),new Tile(SUIT.MAN,9),new Tile(SUIT.MAN,9)],
+        1, new Tile(SUIT.MAN,9)));
+    for (const [s,n] of [[SUIT.MAN,3],[SUIT.MAN,4],[SUIT.MAN,5],
+                          [SUIT.PIN,3],[SUIT.PIN,4],[SUIT.PIN,5],
+                          [SUIT.SOU,7],[SUIT.SOU,7]]) {
+        h.tiles.push(new Tile(s, n));
+    }
+    assert(h.isComplete(), 'K=2 副露後 8閉牌 2面子+雀頭 → isComplete()=true');
+}
+{
+    // K=2 ポン×2後: 7閉牌でテンパイ → isTenpai()=true
+    // ポン×2: 8m, 9m, 閉牌: 3m4m5m 3p4p 7s7s (7枚, 2pか5pを待つ)
+    const h = new Hand();
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,8),new Tile(SUIT.MAN,8),new Tile(SUIT.MAN,8)],
+        0, new Tile(SUIT.MAN,8)));
+    h.melds.push(new Meld(MELD_TYPE.PON,
+        [new Tile(SUIT.MAN,9),new Tile(SUIT.MAN,9),new Tile(SUIT.MAN,9)],
+        1, new Tile(SUIT.MAN,9)));
+    for (const [s,n] of [[SUIT.MAN,3],[SUIT.MAN,4],[SUIT.MAN,5],
+                          [SUIT.PIN,3],[SUIT.PIN,4],
+                          [SUIT.SOU,7],[SUIT.SOU,7]]) {
+        h.tiles.push(new Tile(s, n));
+    }
+    assert(h.isTenpai(), 'K=2 副露後 7閉牌 テンパイ形 → isTenpai()=true');
 }
 
 // ========================
