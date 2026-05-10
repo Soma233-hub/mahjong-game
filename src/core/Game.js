@@ -633,8 +633,24 @@ export class Game {
     }
 
     _processRyuukyoku() {
+        // テンパイ料（ノーテン罰符）計算
+        const tenpaiPlayers = this.players.filter(p => p.hand.isTenpai());
+        const tc = tenpaiPlayers.length;
+        if (tc > 0 && tc < 4) {
+            const nc = 4 - tc;
+            const payPerNoten    = 3000 / nc;
+            const receivePerTenpai = 3000 / tc;
+            this.players.forEach(p => {
+                if (tenpaiPlayers.includes(p)) p.score += receivePerTenpai;
+                else                            p.score -= payPerNoten;
+            });
+        }
+
         this.state = GAME_STATE.ROUND_END;
-        this.emit('roundEnd', { result: ROUND_RESULT.RYUUKYOKU });
+        this.emit('roundEnd', {
+            result: ROUND_RESULT.RYUUKYOKU,
+            tenpaiIndices: tenpaiPlayers.map(p => p.index),
+        });
     }
 
     // --- 局回し ---

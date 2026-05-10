@@ -150,7 +150,7 @@ export default class GameScene extends Phaser.Scene {
         this._showClaimButtons(options);
     }
 
-    _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total }) {
+    _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
         this._clearActionButtons();
         this._clearClaimButtons();
 
@@ -175,7 +175,10 @@ export default class GameScene extends Phaser.Scene {
                 scoreStr,
             ];
         } else if (result === ROUND_RESULT.RYUUKYOKU) {
-            lines = ['流局'];
+            const tenpaiStr = tenpaiIndices?.length > 0
+                ? `テンパイ: ${tenpaiIndices.map(i => `P${i}`).join(' ')}`
+                : '全員ノーテン';
+            lines = ['流局', tenpaiStr];
         } else if (result === ROUND_RESULT.CHOMBO) {
             lines = [`チョンボ  Player${winnerIndex}`];
         }
