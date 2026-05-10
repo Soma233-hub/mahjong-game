@@ -19,6 +19,23 @@
 ## 現在のフェーズ
 **第6週 - GUI・仕上げ（進行中）**
 
+## 午前セッション確認記録（2026-05-10）
+- 全テスト通過確認: 339/339 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 66)
+- シミュレーション（50ゲーム）: ツモ135・ロン145・流局229・チョンボ0・クラッシュ019一保存則違反0（509ラウンド / 平均10.2ラウンド）
+- 実装: `_processRyuukyoku()` にテンパイ料（ノーテン缰符）を実装
+  - テンパイ人数に応じた3000点分配（1:+3000、2:+1500each、3:+1000each）
+  - 全員テンパイ/全員ノーテン時は点数移動なし
+  - roundEndイベントに `tenpaiIndices` フィールド追加
+- バグ修正: `test-simulation.js` の流局・チョンボ時の連荘判定ミスを修正
+  - 修正前: 流局・チョンボが親交代扱い（GameScene.jsとの不一致）
+  - 修正後: 流局・チョンボも `dealerContinues=true`（GameScene.jsと一致）
+  - 平均ラウンド数 4.6 → 10.2 へ增加（連荘が正しく機能した証拠）
+- 改善: `GameScene.js` の流局パネルにテンパイプレイヤー表示追加
+  - テンパイ: P0 P2 形式 / 全員ノーテン時は「全員ノーテン」表示
+- 新規テスト: `tests/test-edge-cases.js` に流局テンパイ料テスト26件追加
+  - 1人/2人/3人テンパイの点数分配 + 点数保存則 + roundEndイベント検証
+  - 全員テンパイ・全員ノーテン時の移動なし検証
+
 ## 夕方セッション確認記録（2026-05-09）
 - 全テスト通過確認: 313/313 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40)
 - シミュレーション（50ゲーム）: ツモ61・ロン69・流局99・チョンボ0・クラッシュ0・保存則違反0（229ラウンド）
@@ -66,7 +83,7 @@
 - バグ修正: isIppatsu が即クリアされる問題（Player.discard() → Game.js側に移管）
   - リーチ宣言直後の捨て牌でisIppatsuが消えていたバグを修正
   - ポン/チー/明槓/暗槓/加槓でisIppatsuをキャンセルするロジックを追加
-  - this.turn > player.riichiTurn の条件で2回目の打牌にのみクリア
+  - this.turn > player.riichiTurn の条件で２回目の打牌にのみクリア
 - バグ修正: nextRound 親交代時に honba がリセットされない問題を修正（honba=0）
 - 新規テスト: tests/test-edge-cases.js（37テスト）
   - ダブルリーチ判定・一発フラグライフサイクル・一時フリテン・供託蓄積
@@ -83,14 +100,14 @@
 - 全テスト通過確認: 268/268 ✅ (14 + 24 + 52 + 85 + 88 + 5)
 - 1000局シミュレーション実行: チョンボ 6→0（バグ修正後）
 - バグ発見・修正: processRon/processWin 二重実行によるチョンボ（ダブルロン時の再帰イベント問題）
-- 1000局統計: ツモ27.4%・ロン29.4%・流局43.2%・チョンボ0・保存則違反0
+- 1000局統計: ツモ27.4%・ロン29.4%・流局43.2%・チョン0・保存則違反0
 - GitHub Issue #9 作成（週次レポート 2026-05-03）
 
 ## 午後セッション確認記録（2026-05-03）
 - 全テスト通過確認: 268/268 ✅ (14 + 24 + 52 + 85 + 88 + 5)
 - 第6週 AI強化・バグ修正完了
 - 新規実装: AILevel3 完全強化（ツモ和了・リーチ・守備判断・チョンボ防止）
-- バグ修正: Hand._normalShanten（cnt=0牌を搭子カウントから除外）
+- バグ修正: Hand._normalShanten（cnt=0牌を搜子カウントから除外）
 - バグ修正: _selectByEffectiveTiles（向聴数優先 → 有効牌枚数最大化）
 - バグ修正: processRiichi で kyotaku++ 追加（点数保存則修正）
 - 新規テスト: tests/test-simulation.js（50ゲームシミュレーション、5テスト全通過）
@@ -172,7 +189,7 @@
 - [x] Game.processAnkan / processKakan / _processKanDraw 完全実装（嶺上ツモ・カンドラ）
 - [x] AILevel3.selectClaimAction 基本実装
 - [x] tests/test-meld.js 作成（52テスト全通過）
-- [x] 全93テスト通過確認
+- [x] 刖93テスト通過確認
 
 ### 第2週
 - [x] Hand._normalShanten の精度検証（14テストケース全通過）
@@ -183,7 +200,7 @@
 - [x] tests/test-hand.js 作成（向聴数・有効牌・待ち牌テスト）
 - [x] tests/test-game-flow.js 作成（ゲームフロー統合テスト）
 - [x] package.json に "test" スクリプト追加（npm test で全テスト実行）
-- [x] 全41テスト通過確認
+- [x] 刖41テスト通過確認
 
 ## 第2週 品質チェックリスト
 - [x] 単体テストで主要ロジックが正常動作している（41/41通過）
@@ -210,13 +227,13 @@
 - [x] AILevel3: リーチ宣言（門前テンパイ・非フリテン・1000点以上）
 - [x] AILevel3: 守備判断（現物/筋/壁による安全度スコア計算）
 - [x] AILevel3: チョンボ防止（ロン前に役確認）
-- [x] Hand._normalShanten バグ修正（cnt=0牌を搭子カウントから除外）
+- [x] Hand._normalShanten バグ修正（cnt=0牌を搜子カウントから除外）
 - [x] _selectByEffectiveTiles バグ修正（向聴数優先ロジック）
 - [x] processRiichi バグ修正（kyotaku++ 追加）
 - [x] Game allAI オプション追加
 - [x] tests/test-simulation.js 作成（50ゲーム・268テスト全通過）
 - [x] processRon/processWin バグ修正（ダブルロン時の再帰二重実行チョンボ防止）
-- [x] 1000局シミュレーション実施・チョンボ0確認
+- [x] 1000局シミュレーション実施・チョン0確認
 - [x] isIppatsu バグ修正（リーチ宣言直後に即クリアされる問題）
 - [x] 副露（ポン/チー/槓）でisIppatsuキャンセル処理追加
 - [x] nextRound 親交代時 honba=0 リセットバグ修正
@@ -227,6 +244,10 @@
 - [x] Game._canRon() 無役ロンボタン表示バグ修正（`_checkPlayerHasYaku` ヘルパー追加）
 - [x] tests/test-hand.js 副露手牌向聴数テスト5件追加（313テスト全通過）
 - [x] tests/test-edge-cases.js _canRon役チェックテスト3件追加
+- [x] Game._processRyuukyoku() にテンパイ料実装（ノーテン缰符・3000点分配）
+- [x] test-simulation.js 流局・チョンボ連荘判定修正（GameScene.jsと統一）
+- [x] GameScene.js 流局パネルにテンパイプレイヤー表示追加
+- [x] tests/test-edge-cases.js 流局テンパイ料テスト26件追加（339テスト全通過）
 
 ## 次回作業内容（第6週残り）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
@@ -247,7 +268,7 @@ mahjong-game/
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   └── test-edge-cases.js  ✅ 40テスト（第6週・エッジケース）
+│   └── test-edge-cases.js  ✅ 66テスト（第6週・エッジケース・流局テンパイ料）
 └── src/
     ├── main.js
     ├── core/
@@ -256,7 +277,7 @@ mahjong-game/
     │   ├── Hand.js      ✅ 副露K枚対応向聴数バグ修正済み
     │   ├── Meld.js      ✅ 完全実装
     │   ├── Player.js    ✅ checkFuriten 完全実装 / isIppatsu管理修正
-    │   └── Game.js      ✅ 副露・カン・点数計算統合完成 / _canRon役チェック追加
+    │   └── Game.js      ✅ 副露・カン・点数計算統合完成 / 流局テンパイ料実装
     ├── logic/
     │   ├── Yaku.js      ✅ 全役判定実装（evaluateYaku・decomposeClosed export）
     │   ├── Score.js     ✅ 符計算・点数計算完全実装（第5週）

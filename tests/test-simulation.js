@@ -39,10 +39,13 @@ function runOneGame() {
         if (roundCount >= MAX_ROUNDS) return;
 
         try {
-            const dealerWon =
-                (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON)
-                && winnerIndex === game.dealerIndex;
-            game.nextRound(dealerWon);
+            // 連荘条件: 親和了 / 流局 / チョンボ → 連荘
+            const dealerContinues =
+                result === ROUND_RESULT.RYUUKYOKU ||
+                result === ROUND_RESULT.CHOMBO ||
+                ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON)
+                    && winnerIndex === game.dealerIndex);
+            game.nextRound(dealerContinues);
         } catch (e) {
             error = e;
         }
@@ -105,10 +108,13 @@ for (let i = 0; i < GAME_COUNT; i++) {
         if (roundCount >= MAX_ROUNDS) return;
 
         try {
-            const dealerWon =
-                (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON)
-                && winnerIndex === game.dealerIndex;
-            game.nextRound(dealerWon);
+            // 連荘条件: 親和了 / 流局 / チョンボ → 連荘
+            const dealerContinues =
+                result === ROUND_RESULT.RYUUKYOKU ||
+                result === ROUND_RESULT.CHOMBO ||
+                ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON)
+                    && winnerIndex === game.dealerIndex);
+            game.nextRound(dealerContinues);
         } catch (e) {
             gameError = e;
         }
@@ -155,7 +161,7 @@ assert(totalConservationViolations === 0,
     `全ラウンドで点数保存則が成立（合計100,000点）`);
 
 assert(totalRounds >= GAME_COUNT * 2,
-    `総ラウンド数が${GAME_COUNT * 2}以上（平均2局/ゲーム以上）`);
+    `総ラウンド数が${GAME_COUNT * 2}以上（平切2局/ゲーム以上）`);
 
 assert((stats.tsumo || 0) + (stats.ron || 0) > 0,
     'ツモまたはロン和了が1回以上発生');
