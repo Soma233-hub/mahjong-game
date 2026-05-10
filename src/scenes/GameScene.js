@@ -175,9 +175,10 @@ export default class GameScene extends Phaser.Scene {
                 scoreStr,
             ];
         } else if (result === ROUND_RESULT.RYUUKYOKU) {
-            const tenpaiStr = tenpaiIndices?.length > 0
-                ? `テンパイ: ${tenpaiIndices.map(i => `P${i}`).join(' ')}`
-                : '全員ノーテン';
+            let tenpaiStr;
+            if (!tenpaiIndices || tenpaiIndices.length === 0) tenpaiStr = '全員ノーテン';
+            else if (tenpaiIndices.length === 4)              tenpaiStr = '全員テンパイ';
+            else tenpaiStr = `テンパイ: ${tenpaiIndices.map(i => `P${i}`).join(' ')}`;
             lines = ['流局', tenpaiStr];
         } else if (result === ROUND_RESULT.CHOMBO) {
             lines = [`チョンボ  Player${winnerIndex}`];
@@ -601,19 +602,23 @@ export default class GameScene extends Phaser.Scene {
         melds.forEach((meld, mi) => {
             meld.tiles.forEach((tile, ti) => {
                 let x, y;
-                // 副露は手牌の右端（Player0）または各プレイヤーの端に配置
+                // 副露配置: 各プレイヤーの手牌エリア外に配置してオーバーラップ防止
                 if (playerIndex === 0) {
+                    // 下: 手牌右端(~885)の右に並べる
                     x = 920 + mi * ((sw + 2) * 4) + ti * (sw + 2);
                     y = 660;
                 } else if (playerIndex === 2) {
-                    x = 360 + mi * ((sw + 2) * 4) + ti * (sw + 2);
+                    // 上: 13枚手牌右端(~853)の右に並べる
+                    x = 880 + mi * ((sw + 2) * 4) + ti * (sw + 2);
                     y = 72;
                 } else if (playerIndex === 1) {
-                    x = 1240;
-                    y = 520 + mi * ((sh + 2) * 5) + ti * (sh + 2);
+                    // 右: 手牌(x=1240)の左に列を設けて並べる / y上端から下へ
+                    x = 1190;
+                    y = 100 + mi * ((sh + 2) * 4) + ti * (sh + 2);
                 } else {
-                    x = 42;
-                    y = 520 + mi * ((sh + 2) * 5) + ti * (sh + 2);
+                    // 左: 手牌(x=42)の右に列を設けて並べる / y上端から下へ
+                    x = 90;
+                    y = 100 + mi * ((sh + 2) * 4) + ti * (sh + 2);
                 }
                 const obj = this._drawTile(x, y, tile, { small: true });
                 this._meldGfxList[playerIndex].push(obj);
