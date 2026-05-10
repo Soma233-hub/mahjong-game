@@ -26,6 +26,7 @@ export class Wall {
         this.doraIndicators = [this.deadWall[4]];
         this.uraDoraIndicators = [];
         this.kanCount = 0;
+        this._rinshansUsed = 0; // カン後嶺上牌の使用数（deadWallをshiftしない）
     }
 
     // n枚配牌する
@@ -38,12 +39,12 @@ export class Wall {
         return this.tiles.length > 0 ? this.tiles.shift() : null;
     }
 
-    // 嶺上ツモ（カン後）
+    // 嶺上ツモ（カン後）: インデックスで取得しdeadWallを変更しない
     drawRinshan() {
-        return this.deadWall.shift();
+        return this.deadWall[this._rinshansUsed++] || null;
     }
 
-    // カンドラをめくる
+    // カンドラをめくる: deadWallを変更しないため固定インデックスが使用可能
     flipKanDora() {
         this.kanCount++;
         this.doraIndicators.push(this.deadWall[4 + this.kanCount]);

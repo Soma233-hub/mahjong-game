@@ -39,6 +39,39 @@ export class AILevel3 extends AIBase {
             player.hand.tiles.pop();
             if (hasYaku) return { action: 'ron' };
         }
+
+        // リーチ中は副露不可
+        if (player.isRiichi) return { action: 'pass' };
+
+        // 他家リーチ中は守備優先（副露しない）
+        const riichiOpponents = game.players.filter(
+            p => p.index !== player.index && p.isRiichi
+        );
+        if (riichiOpponents.length > 0) return { action: 'pass' };
+
+        const currentShanten = player.hand.getShantenNumber().shanten;
+
+        // 明槓: ドラ追加・向聴数変化なし
+        if (opts && opts.canMinkan) return { action: 'minkan' };
+
+        // ポン: 向聴数が改善するときのみ
+        if (opts && opts.canPon) {
+            const indices = player.hand.findPonIndices(discardTile);
+            if (indices && this._shantenAfterClaim(player, indices) < currentShanten) {
+                return { action: 'pon' };
+            }
+        }
+
+        // チー: 向聴数が改善するときのみ
+        if (opts && opts.canChi) {
+            const chiOptions = player.hand.findChiOptions(discardTile);
+            for (const indices of chiOptions) {
+                if (this._shantenAfterClaim(player, indices) < currentShanten) {
+                    return { action: 'chi', tileIndices: indices };
+                }
+            }
+        }
+
         return { action: 'pass' };
     }
 
@@ -213,6 +246,31 @@ export class AILevel3 extends AIBase {
             return 65;
         }
         return 0;
+    }
+
+    // ポン/チー後に最良打牌をした場合の向聴数を計算（状態は元に戻す）
+    _shantenAfterClaim(player, removedIndices) {
+        // 降順で削除（インデックスのずれを防ぐ）
+        const sortedIdx = [...removedIndices].sort((a, b) => b - a);
+        const removed = sortedIdx.map(i => player.hand.tiles.splice(i, 1)[0]);
+        player.hand.melds.push({}); // 副露数+1のシミュレーション（.lengthのみ使用）
+
+        // 各打牌候補での最良向聴数を求める
+        let bestShanten = 100;
+        for (let i = 0; i < player.hand.tiles.length; i++) {
+            const tile = player.hand.tiles.splice(i, 1)[0];
+            const { shanten } = player.hand.getShantenNumber();
+            player.hand.tiles.splice(i, 0, tile);
+            if (shanten < bestShanten) bestShanten = shanten;
+        }
+
+        // 状態を元に戻す（昇順で復元）
+        player.hand.melds.pop();
+        for (let j = sortedIdx.length - 1; j >= 0; j--) {
+            player.hand.tiles.splice(sortedIdx[j], 0, removed[j]);
+        }
+
+        return bestShanten;
     }
 
     _randomDiscard(player) {
