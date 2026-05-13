@@ -232,6 +232,8 @@
 - [x] tests/test-edge-cases.js 流局テンパイ料テスト26件追加（339テスト全通過）
 - [x] GameScene.js 流局パネル テンパイプレイヤー表示 / 全員テンパイ表示対応
 - [x] GameScene.js 対戦相手副露描画オーバーラップ修正（Player1/2/3）
+- [x] tests/test-ai.js 新規作成（27テスト: selectClaimAction/ポン/チー向聴数/selectDiscard/selectDrawAction）
+- [x] package.json: test-ai.js をテストスクリプトに追加（340テスト全通過）
 
 ## 午後セッション確認記録（2026-05-10）
 - 全テスト通過確認: 339/339 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 66)
@@ -261,6 +263,21 @@
   - 1人/2人/3人テンパイの点数分配 + 点数保存則 + roundEndイベント検証
   - 全員テンパイ・全員ノーテン時の移動なし検証
 
+## 夜セッション確認記録（2026-05-13）
+- 全テスト通過確認: 340/340 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40 + 27)
+- 実装: `tests/test-ai.js` 新規作成（27テスト全通過）
+  - commit f27bba8 で AILevel3 に追加されたポン/チー向聴数判断のテストを正式化
+  - 対象メソッド: selectClaimAction / _shantenAfterClaim / selectDiscard / selectDrawAction
+  - ロン判断3件（タンヤオ役あり・役なし・リーチ役）
+  - リーチ/守備2件（自リーチ・他家リーチ中パス）
+  - ポン向聴数2件（改善1→0でpon・改善なし0→0でpass）
+  - チー向聴数2件（改善1→0でchi・改善なし0→0でpass）
+  - 明槓1件（常に宣言）
+  - _shantenAfterClaim状態復元7件（ポン・チー後の向聴数計算と元状態復元）
+  - selectDiscard3件（リーチ中最後の牌・有効牌最大化・現物牌優先）
+  - selectDrawAction5件（ツモ和了役あり・役なし・リーチ宣言・通常打牌）
+- package.json: test-ai.js をテストスクリプトに正式追加
+
 ## 次回作業内容（第6週残り）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
@@ -280,7 +297,8 @@ mahjong-game/
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   └── test-edge-cases.js  ✅ 66テスト（第6週・エッジケース・流局テンパイ料）
+│   ├── test-edge-cases.js  ✅ 66テスト（第6週・エッジケース・流局テンパイ料）
+│   └── test-ai.js          ✅ 27テスト（第6週・AILevel3 ポン/チー判断・打牌選択）
 └── src/
     ├── main.js
     ├── core/
