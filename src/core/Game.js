@@ -663,6 +663,11 @@ export class Game {
         } else {
             this.honba++;
         }
+        // 飛び: 0点以下のプレイヤーがいればゲーム終了
+        if (this.players.some(p => p.score <= 0)) {
+            this._checkGameEnd();
+            return;
+        }
         if (this.round >= 4) {
             this._checkGameEnd();
             return;

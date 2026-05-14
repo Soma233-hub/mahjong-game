@@ -187,16 +187,16 @@ export default class GameScene extends Phaser.Scene {
         lines.push('');
         lines.push(g.players.map(p => `P${p.index}: ${p.score}`).join('  '));
 
-        // パネル
-        const panelBg = this.add.rectangle(640, 360, 620, 220, 0x000000, 0.88)
+        // パネル (center=360, height=280 → y=[220,500])
+        const panelBg = this.add.rectangle(640, 360, 620, 280, 0x000000, 0.88)
             .setStrokeStyle(2, 0xaaaaaa).setDepth(30);
-        const panelTxt = this.add.text(640, 345, lines.join('\n'), {
+        const panelTxt = this.add.text(640, 335, lines.join('\n'), {
             fontSize: '20px', color: '#ffffff', fontFamily: 'monospace', align: 'center',
         }).setOrigin(0.5).setDepth(31);
 
-        // 次局ボタン
-        const nextBg  = this.add.rectangle(640, 490, 160, 40, 0x334466).setDepth(32);
-        const nextTxt = this.add.text(640, 490, '次局へ ▶', {
+        // 次局ボタン (パネル内 y=468)
+        const nextBg  = this.add.rectangle(640, 468, 160, 40, 0x334466).setDepth(32);
+        const nextTxt = this.add.text(640, 468, '次局へ ▶', {
             fontSize: '17px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5).setDepth(33);
 
@@ -233,6 +233,10 @@ export default class GameScene extends Phaser.Scene {
         this._hintTxt.setText('');
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
         g.nextRound(this._lastDealerContinues);
+        // 飛び等でゲーム終了した場合は _onGameEnd で処理済みなので描画しない
+        if (g.state === GAME_STATE.GAME_END) return;
+        // 全プレイヤーの手牌を描画（P0が親の場合、P1-P3がまだ未描画になる問題を解消）
+        for (let i = 0; i < 4; i++) this._renderHand(i);
     }
 
     // =====================================
