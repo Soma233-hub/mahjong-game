@@ -19,6 +19,14 @@
 ## 現在のフェーズ
 **第6週 - GUI・仕上げ（進行中）**
 
+## 夜間セッション確認記録（2026-05-14）
+- 全テスト通過確認: 360/360 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 72 + 15)
+- バグ発見・修正: f27bba8コミットでテストファイルが未コミットだった問題を修正
+  - tests/test-edge-cases.js: 流局テンパイ料テスト32件追加（1人/2人/3人/全員テンパイ/全員ノーテン）
+  - tests/test-ai.js: AILevel3テスト15件新規作成・コミット（selectClaimAction・_shantenAfterClaim・selectDrawAction）
+  - package.jsonのtest-ai.js参照を正式に復元
+- 前セッション(5/13)の修正: test-ai.js参照を一時削除してnpm test修復（313件）→ 本日ファイル本体を作成して再追加
+
 ## 夕方セッション確認記録（2026-05-09）
 - 全テスト通過確認: 313/313 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 40)
 - シミュレーション（50ゲーム）: ツモ61・ロン69・流局99・チョンボ0・クラッシュ0・保存則違反0（229ラウンド）
@@ -229,7 +237,8 @@
 - [x] tests/test-edge-cases.js _canRon役チェックテスト3件追加
 - [x] _processRyuukyoku() テンパイ料（ノーテン罰符）実装
 - [x] test-simulation.js 流局・チョンボ連荘判定ミス修正
-- [x] tests/test-edge-cases.js 流局テンパイ料テスト26件追加（339テスト全通過）
+- [x] tests/test-edge-cases.js 流局テンパイ料テスト32件追加（1人/2人/3人テンパイ・全員テンパイ・全員ノーテン）
+- [x] tests/test-ai.js 新規作成: AILevel3テスト15件（selectClaimAction・_shantenAfterClaim・selectDrawAction）
 - [x] GameScene.js 流局パネル テンパイプレイヤー表示 / 全員テンパイ表示対応
 - [x] GameScene.js 対戦相手副露描画オーバーラップ修正（Player1/2/3）
 
@@ -280,7 +289,8 @@ mahjong-game/
 │   ├── test-yaku.js        ✅ 85テスト（第4週）
 │   ├── test-score.js       ✅ 88テスト（第5週）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   └── test-edge-cases.js  ✅ 66テスト（第6週・エッジケース・流局テンパイ料）
+│   ├── test-edge-cases.js  ✅ 72テスト（第6週・エッジケース・流局テンパイ料）
+│   └── test-ai.js          ✅ 15テスト（第6週・AILevel3ポン/チー判断・リーチ）
 └── src/
     ├── main.js
     ├── core/
