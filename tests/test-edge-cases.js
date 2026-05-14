@@ -654,6 +654,80 @@ console.log('\n[流局テンパイ料: 全員ノーテン]');
 }
 
 // ========================
+// 飛び（トビ）チェック: スコア0以下 → GAME_END
+// ========================
+console.log('\n[nextRound: 飛び(0点) → GAME_END]');
+{
+    const g = new Game({ allAI: true });
+    g.startGame();
+    g.state = GAME_STATE.ROUND_END;
+    g.round = 1; // まだ途中の局
+
+    g.players[2].score = 0; // Player2がトビ
+
+    let gameEndFired = false;
+    g.on('gameEnd', () => { gameEndFired = true; });
+
+    g.nextRound(false);
+
+    assert(gameEndFired, '飛び(0点): gameEnd イベント発火');
+    assert(g.state === GAME_STATE.GAME_END, '飛び(0点): state=GAME_END');
+}
+
+console.log('\n[nextRound: 飛び(マイナス) → GAME_END]');
+{
+    const g = new Game({ allAI: true });
+    g.startGame();
+    g.state = GAME_STATE.ROUND_END;
+    g.round = 0;
+
+    g.players[1].score = -100; // Player1がマイナス
+
+    let gameEndFired = false;
+    g.on('gameEnd', () => { gameEndFired = true; });
+
+    g.nextRound(false);
+
+    assert(gameEndFired, '飛び(マイナス): gameEnd イベント発火');
+    assert(g.state === GAME_STATE.GAME_END, '飛び(マイナス): state=GAME_END');
+}
+
+console.log('\n[nextRound: 全員正の点数 → ゲーム継続]');
+{
+    const g = new Game({ allAI: true });
+    g.startGame();
+    g.state = GAME_STATE.ROUND_END;
+    g.round = 1;
+
+    g.players.forEach((p, i) => { p.score = 25000 - i * 1000; }); // 全員1点以上
+
+    let gameEndFired = false;
+    g.on('gameEnd', () => { gameEndFired = true; });
+
+    g.nextRound(false);
+
+    assert(!gameEndFired, '全員正の点数: gameEnd 未発火（ゲーム継続）');
+}
+
+console.log('\n[nextRound: 連荘中に飛び → GAME_END]');
+{
+    const g = new Game({ allAI: true });
+    g.startGame();
+    g.state = GAME_STATE.ROUND_END;
+    g.round = 0;
+
+    g.players[3].score = -500; // Player3がマイナス
+
+    let gameEndFired = false;
+    g.on('gameEnd', () => { gameEndFired = true; });
+
+    g.nextRound(true); // 連荘（dealerContinues=true）
+
+    assert(gameEndFired, '連荘中の飛び: gameEnd イベント発火');
+    assert(g.state === GAME_STATE.GAME_END, '連荘中の飛び: state=GAME_END');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);
