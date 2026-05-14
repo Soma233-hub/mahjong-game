@@ -457,6 +457,203 @@ console.log('\n[_canRon: リーチ閉じ手テンパイ → ロン可]');
 }
 
 // ========================
+// 流局テンパイ料: 1人テンパイ
+// ========================
+console.log('\n[流局テンパイ料: 1人テンパイ]');
+{
+    // P0のみテンパイ: 123m456m789m 12p 55s (3p待ち)
+    const makeTenpai = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,5),
+    ];
+    // バラバラ(非テンパイ)
+    const makeNoten = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,7), new Tile(SUIT.SOU,1),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,7),
+        new Tile(SUIT.MAN,9),
+    ];
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players[0].score = 25000;
+    g.players[1].score = 25000;
+    g.players[2].score = 25000;
+    g.players[3].score = 25000;
+    g.players[0].hand.tiles = makeTenpai();
+    g.players[0].hand.melds = [];
+    g.players[1].hand.tiles = makeNoten();
+    g.players[1].hand.melds = [];
+    g.players[2].hand.tiles = makeNoten();
+    g.players[2].hand.melds = [];
+    g.players[3].hand.tiles = makeNoten();
+    g.players[3].hand.melds = [];
+
+    let event = null;
+    g.on('roundEnd', e => { event = e; });
+    g._processRyuukyoku();
+
+    assert(g.players[0].score === 28000, '1人テンパイ: テンパイ者 +3000');
+    assert(g.players[1].score === 24000, '1人テンパイ: ノーテン者 -1000 (P1)');
+    assert(g.players[2].score === 24000, '1人テンパイ: ノーテン者 -1000 (P2)');
+    assert(g.players[3].score === 24000, '1人テンパイ: ノーテン者 -1000 (P3)');
+    const total1 = g.players.reduce((s, p) => s + p.score, 0);
+    assert(total1 === 100000, '1人テンパイ: 点数保存則 (100000点)');
+    assert(event !== null, '1人テンパイ: roundEndイベント発火');
+    assert(event.result === ROUND_RESULT.RYUUKYOKU, '1人テンパイ: result=ryuukyoku');
+    assert(JSON.stringify(event.tenpaiIndices) === JSON.stringify([0]), '1人テンパイ: tenpaiIndices=[0]');
+}
+
+// ========================
+// 流局テンパイ料: 2人テンパイ
+// ========================
+console.log('\n[流局テンパイ料: 2人テンパイ]');
+{
+    const makeTenpai = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,5),
+    ];
+    const makeNoten = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,7), new Tile(SUIT.SOU,1),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,7),
+        new Tile(SUIT.MAN,9),
+    ];
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players[0].score = 25000;
+    g.players[1].score = 25000;
+    g.players[2].score = 25000;
+    g.players[3].score = 25000;
+    g.players[0].hand.tiles = makeTenpai();
+    g.players[0].hand.melds = [];
+    g.players[1].hand.tiles = makeTenpai();
+    g.players[1].hand.melds = [];
+    g.players[2].hand.tiles = makeNoten();
+    g.players[2].hand.melds = [];
+    g.players[3].hand.tiles = makeNoten();
+    g.players[3].hand.melds = [];
+
+    let event = null;
+    g.on('roundEnd', e => { event = e; });
+    g._processRyuukyoku();
+
+    assert(g.players[0].score === 26500, '2人テンパイ: テンパイ者P0 +1500');
+    assert(g.players[1].score === 26500, '2人テンパイ: テンパイ者P1 +1500');
+    assert(g.players[2].score === 23500, '2人テンパイ: ノーテン者P2 -1500');
+    assert(g.players[3].score === 23500, '2人テンパイ: ノーテン者P3 -1500');
+    const total2 = g.players.reduce((s, p) => s + p.score, 0);
+    assert(total2 === 100000, '2人テンパイ: 点数保存則');
+    assert(JSON.stringify(event.tenpaiIndices) === JSON.stringify([0, 1]), '2人テンパイ: tenpaiIndices=[0,1]');
+}
+
+// ========================
+// 流局テンパイ料: 3人テンパイ
+// ========================
+console.log('\n[流局テンパイ料: 3人テンパイ]');
+{
+    const makeTenpai = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,5),
+    ];
+    const makeNoten = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,7), new Tile(SUIT.SOU,1),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,7),
+        new Tile(SUIT.MAN,9),
+    ];
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players[0].score = 25000;
+    g.players[1].score = 25000;
+    g.players[2].score = 25000;
+    g.players[3].score = 25000;
+    g.players[0].hand.tiles = makeTenpai();
+    g.players[0].hand.melds = [];
+    g.players[1].hand.tiles = makeTenpai();
+    g.players[1].hand.melds = [];
+    g.players[2].hand.tiles = makeTenpai();
+    g.players[2].hand.melds = [];
+    g.players[3].hand.tiles = makeNoten();
+    g.players[3].hand.melds = [];
+
+    let event = null;
+    g.on('roundEnd', e => { event = e; });
+    g._processRyuukyoku();
+
+    assert(g.players[0].score === 26000, '3人テンパイ: テンパイ者P0 +1000');
+    assert(g.players[1].score === 26000, '3人テンパイ: テンパイ者P1 +1000');
+    assert(g.players[2].score === 26000, '3人テンパイ: テンパイ者P2 +1000');
+    assert(g.players[3].score === 22000, '3人テンパイ: ノーテン者P3 -3000');
+    const total3 = g.players.reduce((s, p) => s + p.score, 0);
+    assert(total3 === 100000, '3人テンパイ: 点数保存則');
+    assert(JSON.stringify(event.tenpaiIndices) === JSON.stringify([0, 1, 2]), '3人テンパイ: tenpaiIndices=[0,1,2]');
+}
+
+// ========================
+// 流局テンパイ料: 全員テンパイ（移動なし）
+// ========================
+console.log('\n[流局テンパイ料: 全員テンパイ]');
+{
+    const makeTenpai = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,5),
+    ];
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.score = 25000; p.hand.tiles = makeTenpai(); p.hand.melds = []; });
+
+    let event = null;
+    g.on('roundEnd', e => { event = e; });
+    g._processRyuukyoku();
+
+    g.players.forEach((p, i) => assert(p.score === 25000, `全員テンパイ: P${i}スコア変化なし`));
+    const total4 = g.players.reduce((s, p) => s + p.score, 0);
+    assert(total4 === 100000, '全員テンパイ: 点数保存則');
+    assert(JSON.stringify(event.tenpaiIndices) === JSON.stringify([0,1,2,3]), '全員テンパイ: tenpaiIndices=[0,1,2,3]');
+}
+
+// ========================
+// 流局テンパイ料: 全員ノーテン（移動なし）
+// ========================
+console.log('\n[流局テンパイ料: 全員ノーテン]');
+{
+    const makeNoten = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,7), new Tile(SUIT.SOU,1),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,7),
+        new Tile(SUIT.MAN,9),
+    ];
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.players.forEach(p => { p.score = 25000; p.hand.tiles = makeNoten(); p.hand.melds = []; });
+
+    let event = null;
+    g.on('roundEnd', e => { event = e; });
+    g._processRyuukyoku();
+
+    g.players.forEach((p, i) => assert(p.score === 25000, `全員ノーテン: P${i}スコア変化なし`));
+    const total5 = g.players.reduce((s, p) => s + p.score, 0);
+    assert(total5 === 100000, '全員ノーテン: 点数保存則');
+    assert(JSON.stringify(event.tenpaiIndices) === JSON.stringify([]), '全員ノーテン: tenpaiIndices=[]');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);
