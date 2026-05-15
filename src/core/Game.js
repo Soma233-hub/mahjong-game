@@ -50,7 +50,8 @@ export class Game {
         this.lastDiscard      = null;
         this.lastDiscardPlayer = -1;
 
-        this._isRinshan   = false; // 嶺上開花フラグ
+        this._isRinshan       = false;
+        this._claimsThisRound = false; // ポン/チー/明槓で true → 地和不成立
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -71,6 +72,7 @@ export class Game {
 
     _startRound() {
         this.wall.init();
+        this._claimsThisRound = false;
         this.players.forEach(p => {
             p.hand.tiles  = [];
             p.hand.melds  = [];
@@ -368,7 +370,7 @@ export class Game {
         player.hand.addMeld(meld, indices);
         player.isMenzen = false;
 
-        // 副露が入ったら全員の一発フラグをキャンセル
+        this._claimsThisRound = true;
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.currentIndex = playerIndex;
@@ -398,7 +400,7 @@ export class Game {
         player.hand.addMeld(meld, [ia, ib]);
         player.isMenzen = false;
 
-        // 副露が入ったら全員の一発フラグをキャンセル
+        this._claimsThisRound = true;
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.currentIndex = playerIndex;
@@ -428,7 +430,7 @@ export class Game {
         player.hand.addMeld(meld, indices);
         player.isMenzen = false;
 
-        // 副露が入ったら全員の一発フラグをキャンセル
+        this._claimsThisRound = true;
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.currentIndex = playerIndex;
@@ -582,8 +584,9 @@ export class Game {
             isHoutei:       !isTsumo && this.wall.isEmpty(),
             isRinshan:      this._isRinshan,
             isChankan:      false,
-            isTenhou:       false,
-            isChiihou:      false,
+            isTenhou:  isTsumo && winnerIndex === this.dealerIndex && this.turn === 1,
+            isChiihou: isTsumo && winnerIndex !== this.dealerIndex &&
+                       !this._claimsThisRound && this.turn <= 4,
         };
 
         const yakuResult = evaluateYaku(winner.hand, winTile, context);
@@ -678,6 +681,18 @@ export class Game {
     _checkGameEnd() {
         this.state = GAME_STATE.GAME_END;
         this.emit('gameEnd', { players: this.players });
+    }
+
+    // ツモ和了宣言可否（役チェック込み）— GameScene のツモボタン表示判定に使用
+    canDeclareWin(playerIndex) {
+        if (this.state !== GAME_STATE.PLAYER_ACTION) return false;
+        const player = this.players[playerIndex];
+        if (!player.hand.isComplete()) return false;
+        // 天和・地和は役あり確定
+        if (playerIndex === this.dealerIndex && this.turn === 1) return true;
+        if (playerIndex !== this.dealerIndex && !this._claimsThisRound && this.turn <= 4) return true;
+        const winTile = player.hand.tiles[player.hand.tiles.length - 1];
+        return this._checkPlayerHasYaku(player, winTile, true);
     }
 
     // --- イベント ---

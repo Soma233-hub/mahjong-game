@@ -728,6 +728,215 @@ console.log('\n[nextRound: 連荘中に飛び → GAME_END]');
 }
 
 // ========================
+// 天和: 親が最初のツモで和了
+// ========================
+console.log('\n[天和: 親が turn=1 でツモ和了 → TENHOU 役満]');
+{
+    // Player0(人間)が最初のツモ後に PLAYER_ACTION で停止する
+    const g = new Game();
+    g.startGame();
+    assertEqual(g.turn, 1, '天和テスト前提: turn=1');
+    assertEqual(g.currentIndex, 0, '天和テスト前提: currentIndex=0 (親)');
+    assertEqual(g.dealerIndex, 0, '天和テスト前提: dealerIndex=0');
+
+    // 完成形手牌をセット: 1m2m3m 4m5m6m 7m8m9m 1p2p3p 1s1s
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.SOU,1), new Tile(SUIT.SOU,1),
+    ];
+    assert(p0.hand.isComplete(), '天和: 手牌完成形');
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(0);
+
+    assert(roundEndData !== null, '天和: roundEnd イベント発火');
+    assert(roundEndData.yakuResult?.isYakuman, '天和: isYakuman=true');
+    assert(roundEndData.yakuResult?.yaku?.some(y => y.key === 'TENHOU'), '天和: TENHOU 含む');
+}
+
+// ========================
+// 地和: 子が最初の1巡でツモ和了（副露なし）
+// ========================
+console.log('\n[地和: 子が turn=2 かつ副露なしでツモ和了 → CHIIHOU 役満]');
+{
+    // 手動状態セット: Player1(南家)が最初のツモを引いた状態
+    const g = new Game();
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 1;
+    g.turn = 2;
+    g._claimsThisRound = false;
+
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.SOU,1), new Tile(SUIT.SOU,1),
+    ];
+    assert(p1.hand.isComplete(), '地和: 手牌完成形');
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(1);
+
+    assert(roundEndData !== null, '地和: roundEnd イベント発火');
+    assert(roundEndData.yakuResult?.isYakuman, '地和: isYakuman=true');
+    assert(roundEndData.yakuResult?.yaku?.some(y => y.key === 'CHIIHOU'), '地和: CHIIHOU 含む');
+}
+
+// ========================
+// 地和不成立: 副露あり(_claimsThisRound=true)
+// ========================
+console.log('\n[地和不成立: 副露あり → CHIIHOU なし]');
+{
+    const g = new Game();
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 1;
+    g.turn = 2;
+    g._claimsThisRound = true; // 副露あり
+
+    const p1 = g.players[1];
+    // タンヤオ閉門完成手（役あり → CHOMBO 回避）
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3), new Tile(SUIT.PIN,4),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,6), new Tile(SUIT.PIN,7),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3),
+    ];
+    assert(p1.hand.isComplete(), '地和不成立(副露): 手牌完成形');
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(1);
+
+    assert(!roundEndData.yakuResult?.yaku?.some(y => y.key === 'CHIIHOU'),
+        '地和不成立(副露): CHIIHOU なし');
+    assert(roundEndData.result === ROUND_RESULT.TSUMO, '地和不成立(副露): 通常ツモ和了');
+}
+
+// ========================
+// 地和不成立: turn >= 5
+// ========================
+console.log('\n[地和不成立: turn=5 → CHIIHOU なし]');
+{
+    const g = new Game();
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 1;
+    g.turn = 5; // 2巡目以降
+    g._claimsThisRound = false;
+
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3), new Tile(SUIT.PIN,4),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,6), new Tile(SUIT.PIN,7),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3),
+    ];
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+    g.processWin(1);
+
+    assert(!roundEndData.yakuResult?.yaku?.some(y => y.key === 'CHIIHOU'),
+        '地和不成立(turn>=5): CHIIHOU なし');
+}
+
+// ========================
+// canDeclareWin: 天和条件（turn=1 の親）
+// ========================
+console.log('\n[canDeclareWin: 天和条件 → true]');
+{
+    const g = new Game();
+    g.startGame();
+    // Player0(人間)が turn=1 で停止
+    const p0 = g.players[0];
+    // 完成形にセット（役なし手でも天和条件なら true のはず）
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.SOU,1), new Tile(SUIT.SOU,1),
+    ];
+    assert(g.canDeclareWin(0), 'canDeclareWin: 天和条件(turn=1,親) → true');
+}
+
+// ========================
+// canDeclareWin: 役なし開き手 → false
+// ========================
+console.log('\n[canDeclareWin: 役なし開き手 → false]');
+{
+    // 手動状態セット: turn=10, 副露ありの役なし手
+    const g = new Game();
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 0;
+    g.turn = 10;
+    g._claimsThisRound = true;
+
+    const p0 = g.players[0];
+    // PON 1p1p1p（開き: タンヤオ不可・役牌でない）+ 閉牌
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.PIN,3), new Tile(SUIT.PIN,4), new Tile(SUIT.PIN,5),
+        new Tile(SUIT.SOU,9), new Tile(SUIT.SOU,9),
+    ];
+    p0.hand.melds = [new Meld(MELD_TYPE.PON, [
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,1),
+    ], 1, new Tile(SUIT.PIN,1))];
+    p0.isMenzen = false;
+    p0.isRiichi = false;
+
+    assert(p0.hand.isComplete(), 'canDeclareWin(役なし): 手牌完成形');
+    assert(!g.canDeclareWin(0), 'canDeclareWin: 役なし開き手 → false');
+}
+
+// ========================
+// canDeclareWin: タンヤオ閉門完成手 → true
+// ========================
+console.log('\n[canDeclareWin: タンヤオ閉門完成手 → true]');
+{
+    const g = new Game();
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 0;
+    g.turn = 10;
+    g._claimsThisRound = true;
+
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3), new Tile(SUIT.PIN,4),
+        new Tile(SUIT.SOU,6), new Tile(SUIT.SOU,7), new Tile(SUIT.SOU,8),
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3),
+    ];
+    p0.hand.melds = [];
+    p0.isMenzen = true;
+    p0.isRiichi = false;
+
+    assert(p0.hand.isComplete(), 'canDeclareWin(タンヤオ): 手牌完成形');
+    assert(g.canDeclareWin(0), 'canDeclareWin: タンヤオ閉門完成手 → true');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);

@@ -261,6 +261,20 @@
 - [x] GameScene.js 局終了パネル「次局へ」ボタン配置バグ修正（パネル外→パネル内）
 - [x] GameScene.js _onNextRound() 全プレイヤー手牌初期描画 + 飛び後描画スキップ対応
 
+## 夜間セッション確認記録（2026-05-15）
+- 全テスト通過確認: 387/387 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 99 + 15)
+- バグ修正: 天和・地和が常に isTenhou/isChiihou=false になっていた未実装バグを修正
+  - Game.js: `_claimsThisRound` フラグ追加（ポン/チー/明槓で true → 地和不成立）
+  - `_startRound()` で false にリセット
+  - `_calculateWin()` の isTenhou/isChiihou を正しく計算するよう修正
+    - 天和: `isTsumo && winnerIndex === dealerIndex && turn === 1`
+    - 地和: `isTsumo && winnerIndex !== dealerIndex && !_claimsThisRound && turn <= 4`
+  - TDD: test-edge-cases.js に天和/地和テスト20件追加（Redフェーズ確認済み）
+- 新機能: `canDeclareWin(playerIndex)` メソッド追加（Game.js）
+  - 役チェック込みのツモ和了可否判定（天和/地和条件も考慮）
+  - GameScene.js のツモボタン表示条件を `canDeclareWin` に変更（役なし手でボタンが表示される問題を修正）
+  - TDD: canDeclareWin テスト3件（天和条件/役なし開き手/タンヤオ閉門）
+
 ## 午後セッション確認記録（2026-05-10）
 - 全テスト通過確認: 339/339 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 66)
 - シミュレーション（50ゲーム）: クラッシュ0・保存則違反0・平均9.2ラウンド
@@ -294,7 +308,6 @@
   - タイル画像アセット導入（現在はテキスト描画）
   - アニメーション・SE追加（第6週制限で保留）
 - 最終デバッグ・完成確認（ブラウザ実機テスト）
-- ゲーム終了条件の追加検討（南入・延長戦ルール等）
 
 ## ファイル構造
 ```

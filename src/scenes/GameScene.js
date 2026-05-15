@@ -251,8 +251,8 @@ export default class GameScene extends Phaser.Scene {
 
         if (g.state !== GAME_STATE.PLAYER_ACTION || g.currentIndex !== 0) return;
 
-        // ツモ和了ボタン
-        if (p0.hand.isComplete()) {
+        // ツモ和了ボタン（役チェック込み）
+        if (g.canDeclareWin(0)) {
             this._addButton(900, 662, 'ツモ', 0x884400, () => {
                 this._clearActionButtons();
                 g.processWin(0);
