@@ -267,6 +267,33 @@
 - [x] GameScene.js 局終了パネル「次局へ」ボタン配置バグ修正（パネル外→パネル内）
 - [x] GameScene.js _onNextRound() 全プレイヤー手牌初期描画 + 飛び後描画スキップ対応
 
+## 午後セッション確認記録（2026-05-16）
+- 全テスト通過確認: 438/438 ✅ (19 + 24 + 52 + 118 + 89 + 5 + 116 + 15)
+- バグ修正① (役判定): 四暗刻単騎ツモが通常 SUUANKOU と判定されていた
+  - Yaku.js `checkSuuankou` 内の `isTanki` 判定から `!context.isTsumo &&` を削除
+  - ツモ/ロン問わず単騎待ち構造を判定するよう修正 → ダブル役満を正しく付与
+- バグ修正② (役判定): 三暗刻ロン双碰でロン完成刻子を暗刻として計上していた
+  - `checkSanankou(hand, winTile=null, isTsumo=true)` にオプション引数追加
+  - ロン時に winTile を含む刻子 (双碰完成) を明刻扱いし closedTriplets から除外
+  - `evaluateYaku` 内の呼び出しを `checkSanankou(hand, winTile, context.isTsumo)` に変更
+- バグ修正③ (符計算): 双碰ロンで完成した刻子の符を暗刻符 (8/4) で計算していた
+  - `decompFu(d, winId, seatWind, roundWind, isTsumo)` に isTsumo 引数追加
+  - ロン時に winId と一致する刻子は明刻符 (4/2) で計算するよう修正
+  - `calculateFu` 内の呼び出しも更新
+- テスト追加 (test-yaku.js): 四暗刻単騎 / 大四喜 / 役満とドラ / 三暗刻ロン双碰 / 小三元 の evaluateYaku 統合テスト 33件
+  - 四暗刻単騎ロン → TSUMO_SUUANKOU (double=true)
+  - 四暗刻単騎ツモ → TSUMO_SUUANKOU (double=true) ← Bug1 修正で初めて通過
+  - 四暗刻双碰ロン → 通常 SUUANKOU (single yakuman)
+  - 大四喜 → DAISUUSHII + double=true + 小四喜なし
+  - 役満時は han=0, RIICHI などの通常役が yaku リストに含まれない
+  - 三暗刻ロン双碰 (暗刻2のみ) → 三暗刻不成立 ← Bug2 修正で通過
+  - 三暗刻ロン双碰 (暗刻3 + ロン明刻) → 三暗刻成立
+  - 小三元 open: HAKU + HATSU + SHOUSANGEN の複合 (4翻)
+  - 小三元 closed ツモ: TSUMO + HAKU + HATSU + SHOUSANGEN
+  - 大三元 → DAISANGEN あり・SHOUSANGEN なし
+- テスト追加 (test-score.js): 双碰ロン明刻字牌 → 40符 (修正前=50符) の符計算テスト 1件
+- 200局シミュレーション確認: クラッシュ0・保存則違反0
+
 ## 午前セッション確認記録（2026-05-16）
 - 全テスト通過確認: 404/404 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 116 + 15)
 - 実装: 槍槓（チャンカン）RON 完全実装（TDD）
@@ -350,8 +377,8 @@ mahjong-game/
 │   ├── test-hand.js        ✅ 19テスト
 │   ├── test-game-flow.js   ✅ 24テスト
 │   ├── test-meld.js        ✅ 52テスト
-│   ├── test-yaku.js        ✅ 85テスト（第4週）
-│   ├── test-score.js       ✅ 88テスト（第5週）
+│   ├── test-yaku.js        ✅ 118テスト（第4週 + 午後セッション統合テスト追加）
+│   ├── test-score.js       ✅ 89テスト（第5週 + 符計算エッジケース追加）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
 │   ├── test-edge-cases.js  ✅ 79テスト（第6週・エッジケース・流局テンパイ料・飛びチェック）
 │   └── test-ai.js          ✅ 15テスト（第6週・AILevel3ポン/チー判断・リーチ）

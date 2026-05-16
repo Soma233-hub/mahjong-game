@@ -900,6 +900,64 @@ console.log('\n[evaluateYaku: 役満とドラ]');
 }
 
 // ==============================================================
+// evaluateYaku: 小三元複合テスト
+// 白・發・中のうち2つ刻子 + 1つ雀頭 → 小三元(2翻) + 役牌2個(各1翻) = 4翻
+// ==============================================================
+console.log('\n[evaluateYaku: 小三元]');
+{
+    // 小三元 open手: 白PON + 發PON + 中中(雀頭) + 234m + 567p ロン7p
+    // 5z=白, 6z=發, 7z=中
+    const h = makeHandWithMelds(
+        ['7z','7z','2m','3m','4m','5p','6p','7p'],
+        [makePon('5z'), makePon('6z')]
+    );
+    const ctx = { isTsumo: false, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('7p'), ctx);
+    assert(!result.isYakuman, '小三元 → 役満でない');
+    assert(result.yaku.some(y => y.key === 'SHOUSANGEN'), '小三元 → SHOUSANGEN あり');
+    assert(result.yaku.some(y => y.key === 'HAKU'),       '小三元 → HAKU あり（白PON）');
+    assert(result.yaku.some(y => y.key === 'HATSU'),      '小三元 → HATSU あり（發PON）');
+    assert(!result.yaku.some(y => y.key === 'CHUN'),      '小三元 → CHUN なし（中は雀頭）');
+    assertEqual(result.han,
+        result.yaku.filter(y => y.key === 'SHOUSANGEN')[0].han +
+        result.yaku.filter(y => y.key === 'HAKU')[0].han +
+        result.yaku.filter(y => y.key === 'HATSU')[0].han,
+        '小三元翻数 = SHOUSANGEN(2)+HAKU(1)+HATSU(1) = 4翻');
+}
+{
+    // 小三元 closed手: 白白白 + 發發發 + 中中 + 234m + 567p ツモ7p
+    const h = makeHand(['5z','5z','5z','6z','6z','6z','7z','7z','2m','3m','4m','5p','6p','7p']);
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('7p'), ctx);
+    assert(!result.isYakuman,                              '小三元門前ツモ → 役満でない');
+    assert(result.yaku.some(y => y.key === 'SHOUSANGEN'), '小三元門前ツモ → SHOUSANGEN あり');
+    assert(result.yaku.some(y => y.key === 'HAKU'),       '小三元門前ツモ → HAKU あり');
+    assert(result.yaku.some(y => y.key === 'HATSU'),      '小三元門前ツモ → HATSU あり');
+    assert(result.yaku.some(y => y.key === 'TSUMO'), '小三元門前ツモ → 門前清自摸和あり');
+}
+{
+    // 大三元は SHOUSANGEN を含まない
+    const h = makeHandWithMelds(
+        ['5z','5z','5z','2m','3m','4m','5m','5m'],
+        [makePon('6z'), makePon('7z')]
+    );
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('4m'), ctx);
+    assert(result.isYakuman,                               '大三元 → 役満');
+    assert(result.yaku.some(y => y.key === 'DAISANGEN'),  '大三元 → DAISANGEN あり');
+    assert(!result.yaku.some(y => y.key === 'SHOUSANGEN'), '大三元 → SHOUSANGEN なし');
+}
+
+// ==============================================================
 // 結果
 // ==============================================================
 console.log(`\n結果: ${passed} passed, ${failed} failed`);
