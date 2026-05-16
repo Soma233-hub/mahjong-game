@@ -486,10 +486,19 @@ console.log('\n=== calculateFu: 待ち牌符 ===');
     const ctx = { isTsumo: false, seatWind: 1, roundWind: 1 };
     // win=1p. hand has: 1m2m3m, 4m5m6m, 7m8m9m, 1p×3, 3p×2
     // decomp: pair=3p, mentsu=[123m, 456m, 789m, 111p(triplet)] winTile=1p in triplet → 双碰
-    // fu: 30(menzen) + 8(1p=1索老頭暗刻? No, 1p=pin→老頭=rank0→8符) + 0(双碰) = 38→40符
-    // Actually 1p is 1筒(一筒), rank=1(0-indexed 0), isTerminalOrHonor → yes → 暗刻8符
-    // total: 30+8+0=38→40符
-    assertEqual(calculateFu(h2, t('1p'), ctx), 40, '双碰待ち=40符（刻子符あり）');
+    // 修正後: 1p(老頭)は双碰ロン明刻 → 4符
+    // fu: 30(menzen) + 4(1p老頭明刻) + 0(双碰) = 34→40符
+    assertEqual(calculateFu(h2, t('1p'), ctx), 40, '双碰待ち=40符（明刻4符）');
+}
+{
+    // 双碰ロン明刻: 符ティアが変わるケース
+    // 1z1z1z(字牌) 2p2p2p(中張) 3p4p5p 6p7p8p + 4z4z → shanpon待ち → ロン1z
+    // 1z(字牌明刻)=4符、2p(中張暗刻)=4符、門前=10符
+    // 正: 20+10+4+4+0=38→40符
+    // 誤(修正前): 20+10+8+4+0=42→50符
+    const h3 = makeHand(['1z','1z','1z','2p','2p','2p','3p','4p','5p','6p','7p','8p','4z','4z']);
+    const ctx3 = { isTsumo: false, seatWind: 3, roundWind: 2 }; // 西家・南場
+    assertEqual(calculateFu(h3, t('1z'), ctx3), 40, '双碰ロン明刻字牌=40符（明刻4符、誤=50符）');
 }
 
 console.log('\n=== calculateFu: 雀頭符 ===');

@@ -756,6 +756,150 @@ console.log('\n[evaluateYaku 統合]');
 }
 
 // ==============================================================
+// evaluateYaku: 四暗刻単騎（ダブル役満）
+// ==============================================================
+console.log('\n[evaluateYaku: 四暗刻単騎]');
+{
+    // 四暗刻単騎 ロン: 111m 222m 333m 444m + 単騎 5m でロン
+    const h = makeHand(['1m','1m','1m','2m','2m','2m','3m','3m','3m','4m','4m','4m','5m','5m']);
+    const ctx = { isTsumo: false, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('5m'), ctx);
+    assert(result.isYakuman, '四暗刻単騎ロン → 役満');
+    assert(result.yaku.some(y => y.key === 'TSUMO_SUUANKOU'), '四暗刻単騎ロン → TSUMO_SUUANKOU');
+    assert(result.yaku.find(y => y.key === 'TSUMO_SUUANKOU')?.double, '四暗刻単騎ロン → double=true');
+}
+{
+    // 四暗刻単騎 ツモ: 111m 222m 333m 444m + 単騎 5m でツモ
+    const h = makeHand(['1m','1m','1m','2m','2m','2m','3m','3m','3m','4m','4m','4m','5m','5m']);
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('5m'), ctx);
+    assert(result.isYakuman, '四暗刻単騎ツモ → 役満');
+    assert(result.yaku.some(y => y.key === 'TSUMO_SUUANKOU'), '四暗刻単騎ツモ → TSUMO_SUUANKOU (not regular SUUANKOU)');
+    assert(result.yaku.find(y => y.key === 'TSUMO_SUUANKOU')?.double, '四暗刻単騎ツモ → double=true');
+}
+{
+    // 四暗刻 双碰ロン（単騎でない → 通常 SUUANKOU）
+    // 111m 222m 333m 44m 55m → 双碰待ち、4m でロン → 444m + 55m 対子
+    const h = makeHand(['1m','1m','1m','2m','2m','2m','3m','3m','3m','4m','4m','4m','5m','5m']);
+    // 4m がロン牌の場合: pair=5m, win=4m → win ≠ pair → 通常 SUUANKOU
+    const ctx = { isTsumo: false, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    // 双碰構成: 111m 222m 333m 4m4m 5m5m待ち → 4m和了は 444m + 55m対子
+    // 実際は両方同じ牌なので別の例が必要
+    // 111m 222p 333s 4z4z 5z5z（双碰: 4z か 5z 待ち）
+    const h2 = makeHand(['1m','1m','1m','1p','1p','1p','1s','1s','1s','2s','2s','2s','3z','3z']);
+    // 和了牌=3z（単騎でない双碰待ちの代わりに、ここでは4暗刻の pair ではないケース）
+    // 3z でロン: pair=3z, win=3z → pair === win → これは単騎になってしまう...
+    // 正しい双碰四暗刻テスト:
+    // 111m 222m 333m 1z1z + 2z2z 待ち → 1z でロン → 111z triplet + 2z pair = 四暗刻
+    const h3 = makeHand(['1m','1m','1m','2m','2m','2m','3m','3m','3m','1z','1z','1z','2z','2z']);
+    // winTile = 1z → 但し 1z は既に triplet の一部 → 分解時 pair=2z, triplet={1m,2m,3m,1z}
+    // decomp: pair=2z, win=1z → pair ≠ win → isTanki=false → 通常 SUUANKOU
+    const result3 = evaluateYaku(h3, t('1z'), ctx);
+    assert(result3.isYakuman, '四暗刻双碰ロン → 役満');
+    assert(result3.yaku.some(y => y.key === 'SUUANKOU'), '四暗刻双碰ロン → 通常 SUUANKOU (single yakuman)');
+    assert(!result3.yaku.some(y => y.key === 'TSUMO_SUUANKOU'), '四暗刻双碰ロン → TSUMO_SUUANKOU でない');
+}
+
+// ==============================================================
+// evaluateYaku: 大四喜（ダブル役満）
+// ==============================================================
+console.log('\n[evaluateYaku: 大四喜]');
+{
+    // 大四喜: 東南西北 全刻子
+    const h = makeHandWithMelds(
+        ['2z','2z','2z','3z','3z','3z','1m','1m'],
+        [makePon('1z'), makePon('4z')]
+    );
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('1m'), ctx);
+    assert(result.isYakuman, '大四喜 → 役満');
+    assert(result.yaku.some(y => y.key === 'DAISUUSHII'), '大四喜 → DAISUUSHII');
+    assert(result.yaku.find(y => y.key === 'DAISUUSHII')?.double, '大四喜 → double=true');
+    assert(!result.yaku.some(y => y.key === 'SHOUSUUSHII'), '大四喜 → 小四喜なし');
+}
+
+// ==============================================================
+// evaluateYaku: 三暗刻ロン双碰バグ確認
+// 双碰ロンで完成した刻子は明刻扱い → 暗刻2つでは三暗刻不成立
+// ==============================================================
+console.log('\n[evaluateYaku: 三暗刻ロン双碰]');
+{
+    // 三暗刻ロン双碰NG: 111m 222m 3s3s 4z4z 789m + ロン3s
+    // 実際の暗刻: 1m, 2m の2つ（3sはロン明刻） → 三暗刻不成立
+    const h = makeHand(['1m','1m','1m','2m','2m','2m','3s','3s','3s','4z','4z','7m','8m','9m']);
+    const ctx = { isTsumo: false, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('3s'), ctx);
+    assert(!result.yaku.some(y => y.key === 'SANANKOU'),
+        '三暗刻ロン双碰（暗刻2のみ）→ 三暗刻不成立');
+}
+{
+    // 三暗刻ロン双碰OK: 111m 222m 333m 4z4z 789m + ロン4z
+    // 実際の暗刻: 1m, 2m, 3m の3つ（4zはロン明刻） → 三暗刻成立
+    const h = makeHand(['1m','1m','1m','2m','2m','2m','3m','3m','3m','4z','4z','7m','8m','9m']);
+    const ctx = { isTsumo: false, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    // 4z でロン: pair=4z... wait 4z4z は2枚 なのでデコンポジションは pair=4z, triplet={1m,2m,3m},seq={7m8m9m}
+    // winTile=4z → pair(4z) に含まれる → 刻子ではない → closedTriplets 変化なし → 三暗刻成立
+    const result = evaluateYaku(h, t('4z'), ctx);
+    // 注: 4z がロン牌の場合、hand decomp では pair=4z (2枚) になるが
+    // これは winTile が triplet にある場合の調整ルール（pair のみは不要）
+    // 実際 4z4z4z は 4z×3 ではなく 4z×2 しかないので triplet にならない
+    // この手の decompose は不正な手のはず... 14枚チェック
+    // 1m×3 + 2m×3 + 3m×3 + 4z×2 + 7m8m9m×3 = 9+2+3 = 14 ✓
+    // decompose: pair=4z, mentsu=[1m,2m,3m triplets, 7m8m9m seq] → winTile=4z in pair → no adj
+    assert(result.yaku.some(y => y.key === 'SANANKOU'),
+        '三暗刻ロン双碰（暗刻3 + ロン明刻1）→ 三暗刻成立');
+}
+{
+    // 三暗刻ツモ: 111m 222m 333m + 5m5m + ロンなし
+    const h = makeHandWithMelds(
+        ['1m','1m','1m','2m','2m','2m','3m','3m','3m','5m','5m'],
+        [makeChi('4p','5p','6p')]
+    );
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('5m'), ctx);
+    assert(result.yaku.some(y => y.key === 'SANANKOU'),
+        '三暗刻ツモ → 三暗刻成立（ツモは明刻扱いなし）');
+}
+
+// ==============================================================
+// evaluateYaku: 役満翻数計算（han=0 固定、通常役なし）
+// ==============================================================
+console.log('\n[evaluateYaku: 役満とドラ]');
+{
+    // 役満時は通常役・ドラは加算されない（hanは0、isYakuman=true）
+    const h = makeHand(['1m','1m','1m','2m','2m','2m','3m','3m','3m','4m','4m','4m','5m','5m']);
+    const ctx = { isTsumo: true, isRiichi: true, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.SOUTH, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const result = evaluateYaku(h, t('5m'), ctx);
+    assert(result.isYakuman, '役満時: isYakuman=true');
+    assertEqual(result.han, 0, '役満時: han=0（ドラ翻数は別途計算）');
+    assert(!result.yaku.some(y => y.key === 'RIICHI'), '役満時: RIICHI が役リストに含まれない');
+}
+
+// ==============================================================
 // 結果
 // ==============================================================
 console.log(`\n結果: ${passed} passed, ${failed} failed`);

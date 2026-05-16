@@ -214,12 +214,20 @@ export function checkToitoi(hand) {
 }
 
 // 三暗刻: 暗刻（暗槓含む）が3つ以上
-export function checkSanankou(hand) {
+// ロン時は winTile が含まれる刻子を明刻扱いとして除外する
+export function checkSanankou(hand, winTile = null, isTsumo = true) {
     const decomps = decomposeClosed(hand);
     const ankanCount = hand.melds.filter(m => m.type === MELD_TYPE.ANKAN).length;
     for (const d of decomps) {
         if (d.type !== 'normal') continue;
-        const closedTriplets = d.mentsu.filter(m => m.type === 'triplet').length;
+        let closedTriplets = d.mentsu.filter(m => m.type === 'triplet').length;
+        // ロン時: winTile を含む刻子は明刻扱い（双碰ロンで完成した刻子を除外）
+        if (!isTsumo && winTile !== null) {
+            const winInTriplet = d.mentsu.some(m =>
+                m.type === 'triplet' && m.ids[0] === winTile.id
+            );
+            if (winInTriplet) closedTriplets--;
+        }
         if (closedTriplets + ankanCount >= 3) return true;
     }
     return false;
@@ -529,9 +537,9 @@ export function evaluateYaku(hand, winTile, context) {
 
     if (checkKokushi(hand))                  addYakuman('KOKUSHI',        YAKU_HAN.KOKUSHI);
     if (checkSuuankou(hand)) {
-        // 単騎待ちかどうか: winTileが雀頭になっている分解があるか
+        // 単騎待ちかどうか: winTileが雀頭になっている分解があるか（ツモ/ロン問わず）
         const decomps = decomposeClosed(hand);
-        const isTanki = !context.isTsumo && decomps.some(d =>
+        const isTanki = decomps.some(d =>
             d.type === 'normal' && d.pair === winTile.id &&
             d.mentsu.every(m => m.type === 'triplet')
         );
@@ -592,7 +600,7 @@ export function evaluateYaku(hand, winTile, context) {
 
     const hasToitoi = checkToitoi(hand);
     if (hasToitoi)              addYaku('TOITOI',        YAKU_HAN.TOITOI);
-    if (checkSanankou(hand))    addYaku('SANANKOU',      YAKU_HAN.SANANKOU);
+    if (checkSanankou(hand, winTile, context.isTsumo)) addYaku('SANANKOU', YAKU_HAN.SANANKOU);
     if (checkHonroutou(hand))   addYaku('HONROUTOU',     YAKU_HAN.HONROUTOU);
     if (checkShousangen(hand))  addYaku('SHOUSANGEN',    YAKU_HAN.SHOUSANGEN);
     if (checkSankantsu(hand))   addYaku('SANKANTSU',     YAKU_HAN.SANKANTSU);

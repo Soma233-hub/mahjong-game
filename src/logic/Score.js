@@ -33,18 +33,24 @@ function meldFu(meld) {
 
 // 一分解における閉刻符・雀頭符・待ち符を返す
 // 和了牌を含まない分解は null を返す
-function decompFu(d, winId, seatWind, roundWind) {
+// isTsumo=false かつ winId が刻子に含まれる場合は明刻符（双碰ロン完成刻子）
+function decompFu(d, winId, seatWind, roundWind, isTsumo) {
     if (d.type !== 'normal') return null;
 
     const inPair   = d.pair === winId;
     const inMentsu = d.mentsu.some(m => m.ids.includes(winId));
     if (!inPair && !inMentsu) return null;
 
-    // 閉刻符（decompose内の刻子は全て閉刻）
+    // 刻子符: ロン時に winId を含む刻子は明刻扱い（双碰ロン → 明刻）
     let tripletFu = 0;
     for (const m of d.mentsu) {
         if (m.type === 'triplet') {
-            tripletFu += isTerminalOrHonor(m.ids[0]) ? 8 : 4;
+            const isOpenByRon = !isTsumo && m.ids[0] === winId;
+            if (isOpenByRon) {
+                tripletFu += isTerminalOrHonor(m.ids[0]) ? 4 : 2; // 明刻符
+            } else {
+                tripletFu += isTerminalOrHonor(m.ids[0]) ? 8 : 4; // 暗刻符
+            }
         }
     }
 
@@ -120,7 +126,7 @@ export function calculateFu(hand, winTile, context) {
     let maxFu = 0;
 
     for (const d of decomps) {
-        const extra = decompFu(d, winId, seatWind, roundWind);
+        const extra = decompFu(d, winId, seatWind, roundWind, isTsumo);
         if (!extra) continue;
 
         const raw = 20 + menzenBonus + tsumoFu + openMeldFu
