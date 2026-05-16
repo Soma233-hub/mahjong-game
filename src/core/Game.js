@@ -52,6 +52,8 @@ export class Game {
 
         this._isRinshan       = false;
         this._claimsThisRound = false; // ポン/チー/明槓で true → 地和不成立
+        this._isChankan       = false; // 加槓に対するロン処理中
+        this._pendingKakan    = null;  // 槍槓チェック中の保留加槓情報
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -73,6 +75,8 @@ export class Game {
     _startRound() {
         this.wall.init();
         this._claimsThisRound = false;
+        this._isChankan       = false;
+        this._pendingKakan    = null;
         this.players.forEach(p => {
             p.hand.tiles  = [];
             p.hand.melds  = [];
@@ -202,7 +206,8 @@ export class Game {
     }
 
     // ロン/ツモ前の役有無確認（AI共有ロジック）
-    _checkPlayerHasYaku(player, winTile, isTsumo) {
+    // extraContext で isChankan 等を上書き可能
+    _checkPlayerHasYaku(player, winTile, isTsumo, extraContext = {}) {
         const seatWind = player.getSeatWind(this.dealerIndex) + 1;
         const context = {
             isTsumo,
@@ -217,9 +222,20 @@ export class Game {
             isChankan:      false,
             isTenhou:       false,
             isChiihou:      false,
+            ...extraContext,
         };
         const { yaku, isYakuman } = evaluateYaku(player.hand, winTile, context);
         return isYakuman || yaku.length > 0;
+    }
+
+    // 槍槓RON可否判定（加槓牌に対して他家がロンできるか）
+    _canChankan(player, tile) {
+        if (player.isFuriten || player.isTemporaryFuriten) return false;
+        if (!player.hand.getWaitingTileIds().includes(tile.id)) return false;
+        player.hand.tiles.push(tile);
+        const hasYaku = this._checkPlayerHasYaku(player, tile, false, { isChankan: true });
+        player.hand.tiles.pop();
+        return hasYaku;
     }
 
     _canPon(player, tile) {
@@ -309,7 +325,7 @@ export class Game {
     }
 
     _resolveClaimDecisions() {
-        const { decisions, allOptions } = this._claimContext;
+        const { decisions, allOptions, _chankan } = this._claimContext;
         this._claimContext = null;
 
         // ロンを見逃したプレイヤーに一時フリテン付与
@@ -332,6 +348,14 @@ export class Game {
             .map(([idx]) => Number(idx));
         if (rons.length > 0) {
             rons.forEach(idx => this.processRon(idx, this.lastDiscardPlayer));
+            if (_chankan) this._isChankan = false;
+            return;
+        }
+
+        // 槍槓: 全員パス → 加槓を完了
+        if (_chankan) {
+            this._isChankan = false;
+            this._completePendingKakan();
             return;
         }
 
@@ -468,7 +492,7 @@ export class Game {
         this._processKanDraw();
     }
 
-    // 加槓実行（ポン済み牌に追加）
+    // 加槓実行（ポン済み牌に追加）- 槍槓チェック付き
     processKakan(playerIndex, meldIndex) {
         if (this.state !== GAME_STATE.PLAYER_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
@@ -479,6 +503,27 @@ export class Game {
         if (!opt) return;
 
         const addedTile = player.hand.tiles[opt.tileIndex];
+
+        // 槍槓チェック: 加牌確定前に他家がロン可能か確認
+        const hasChankan = this.players.some((p, i) =>
+            i !== playerIndex && this._canChankan(p, addedTile)
+        );
+
+        if (hasChankan) {
+            this._pendingKakan = { playerIndex, meldIndex, opt };
+            this._isChankan = true;
+            this.lastDiscard = addedTile;
+            this.lastDiscardPlayer = playerIndex;
+            this.state = GAME_STATE.CLAIM;
+            this._processChankanClaims(playerIndex, addedTile);
+        } else {
+            this._executeKakan(playerIndex, meldIndex, opt, addedTile);
+        }
+    }
+
+    // 加槓の実際の処理（槍槓なし、または全員パス後）
+    _executeKakan(playerIndex, meldIndex, opt, addedTile) {
+        const player = this.players[playerIndex];
         player.hand.tiles.splice(opt.tileIndex, 1);
 
         const ponMeld = player.hand.melds[meldIndex];
@@ -490,13 +535,69 @@ export class Game {
         );
         player.hand.melds[meldIndex] = kakanMeld;
 
-        // 副露が入ったら全員の一発フラグをキャンセル
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
-
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('kakan', { playerIndex, meldIndex, tile: addedTile });
         this._processKanDraw();
+    }
+
+    // 槍槓クレーム処理
+    _processChankanClaims(kakanPlayerIndex, addedTile) {
+        const decisions = {};
+        let waitForHuman = false;
+
+        for (let i = 0; i < 4; i++) {
+            if (i === kakanPlayerIndex) continue;
+            const player = this.players[i];
+            if (!this._canChankan(player, addedTile)) continue;
+
+            if (player.isHuman) {
+                waitForHuman = true;
+                decisions[i] = null;
+            } else {
+                const opts = { canRon: true, canPon: false, canMinkan: false, canChi: false };
+                decisions[i] = player.ai.selectClaimAction(player, this, addedTile, opts);
+            }
+        }
+
+        if (Object.keys(decisions).length === 0) {
+            this._isChankan = false;
+            this._completePendingKakan();
+            return;
+        }
+
+        this._claimContext = {
+            decisions,
+            allOptions: Object.fromEntries(
+                Object.keys(decisions).map(k => [Number(k), {
+                    canRon: true, canPon: false, canMinkan: false, canChi: false,
+                }])
+            ),
+            discarderIdx: kakanPlayerIndex,
+            tile: addedTile,
+            _chankan: true,
+        };
+
+        if (waitForHuman) {
+            const humanIdx = this.players.findIndex(p => p.isHuman);
+            const opts = decisions[humanIdx] === null
+                ? { canRon: true, canPon: false, canMinkan: false, canChi: false }
+                : {};
+            this.emit('claimNeeded', { playerIndex: humanIdx, options: opts });
+        } else {
+            this._resolveClaimDecisions();
+        }
+    }
+
+    // 保留中の加槓を完了（全員パスの場合）
+    _completePendingKakan() {
+        if (!this._pendingKakan) return;
+        const { playerIndex, meldIndex, opt } = this._pendingKakan;
+        this._pendingKakan = null;
+        const player = this.players[playerIndex];
+        const addedTile = player.hand.tiles[opt.tileIndex];
+        this._executeKakan(playerIndex, meldIndex, opt, addedTile);
     }
 
     // 和了（ロン）
@@ -583,7 +684,7 @@ export class Game {
             isHaitei:       isTsumo  && this.wall.isEmpty(),
             isHoutei:       !isTsumo && this.wall.isEmpty(),
             isRinshan:      this._isRinshan,
-            isChankan:      false,
+            isChankan:      this._isChankan,
             isTenhou:  isTsumo && winnerIndex === this.dealerIndex && this.turn === 1,
             isChiihou: isTsumo && winnerIndex !== this.dealerIndex &&
                        !this._claimsThisRound && this.turn <= 4,

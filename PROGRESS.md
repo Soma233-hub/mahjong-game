@@ -228,6 +228,12 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
+## 完了タスク（第6週追加）
+- [x] 槍槓（チャンカン）RON 完全実装: `_canChankan` / `_processChankanClaims` / `_executeKakan` / `_completePendingKakan`
+- [x] `_checkPlayerHasYaku` に `extraContext` 引数追加（isChankan 上書き対応）
+- [x] `_calculateWin` の `isChankan` を `this._isChankan` フラグで制御
+- [x] tests/test-edge-cases.js 槍槓テスト 17件追加（404テスト全通過）
+
 ## 完了タスク（第6週）
 - [x] AILevel3 完全強化: ツモ和了前の役チェック（_hasYaku）
 - [x] AILevel3: リーチ宣言（門前テンパイ・非フリテン・1000点以上）
@@ -260,6 +266,30 @@
 - [x] tests/test-edge-cases.js 飛びテスト7件追加（TDD・Redフェーズ確認済み）367テスト全通過
 - [x] GameScene.js 局終了パネル「次局へ」ボタン配置バグ修正（パネル外→パネル内）
 - [x] GameScene.js _onNextRound() 全プレイヤー手牌初期描画 + 飛び後描画スキップ対応
+
+## 午前セッション確認記録（2026-05-16）
+- 全テスト通過確認: 404/404 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 116 + 15)
+- 実装: 槍槓（チャンカン）RON 完全実装（TDD）
+  - 背景: Yaku.js には isChankan コンテキストと CHANKAN 役が実装済みだったが、
+           Game._calculateWin では isChankan が常に false、加槓時のRON機会チェックも未実装
+  - Game.js: `_canChankan(player, tile)` メソッド追加（フリテン判定・待ち確認・役確認）
+  - Game.js: `_checkPlayerHasYaku` に `extraContext` 引数追加（isChankan 等の上書きを可能に）
+  - Game.js: `processKakan` を改修: 加牌確定前に全他家へ槍槓チェック
+    - 槍槓可能者あり → `_processChankanClaims` 経由でクレーム処理
+    - 槍槓なし → `_executeKakan` で即時実行（従来同様）
+  - Game.js: `_processChankanClaims` 追加（AI即時判断 / 人間は claimNeeded イベント経由）
+  - Game.js: `_executeKakan` 抽出（直接実行・保留後完了共通ロジック）
+  - Game.js: `_completePendingKakan` 追加（全員パス時の加槓完了）
+  - Game.js: `_resolveClaimDecisions` 改修: `_chankan` フラグで槍槓パスを _completePendingKakan へ分岐
+  - Game.js: `_calculateWin` の `isChankan: this._isChankan` 使用（常に false を解消）
+  - 仕様確認: 槍槓は常に 1翻の役（open: 1）なので「役なし槍槓」は存在しない
+  - TDD: test-edge-cases.js に槍槓テスト 17件追加（Redフェーズ確認済み）
+    - _canChankan: 待ち牌かつ役あり → true
+    - _canChankan: フリテン → false
+    - _canChankan: 待ち牌でない → false
+    - _canChankan: 開き手でも 槍槓役で true（仕様確認）
+    - processKakan → 槍槓 RON 発動（result=RON, winnerIndex, CHANKAN役, RIICHI役）
+    - 槍槓なし → 通常加槓完了（meld.type=KAKAN 確認）
 
 ## 夜間セッション確認記録（2026-05-15）
 - 全テスト通過確認: 387/387 ✅ (19 + 24 + 52 + 85 + 88 + 5 + 99 + 15)
@@ -308,6 +338,7 @@
   - タイル画像アセット導入（現在はテキスト描画）
   - アニメーション・SE追加（第6週制限で保留）
 - 最終デバッグ・完成確認（ブラウザ実機テスト）
+- 追加検討: 槍槓に対する人間プレイヤーUI（GameScene.js 既存 claimNeeded フローで対応済み）
 
 ## ファイル構造
 ```

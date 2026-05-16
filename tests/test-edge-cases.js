@@ -937,6 +937,245 @@ console.log('\n[canDeclareWin: タンヤオ閉門完成手 → true]');
 }
 
 // ========================
+// 槍槓（チャンカン）: _canChankan - 待ち牌かつ役あり → true
+// ========================
+console.log('\n[槍槓: _canChankan - 待ち牌かつ役あり → true]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.dealerIndex = 0;
+
+    // Player1: リーチ中で 3s 待ちの手牌（1m2m3m 4m5m6m 7m8m9m 1p1p 4s5s → 3s or 6s 両面待ち）
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,1),
+        new Tile(SUIT.SOU,4), new Tile(SUIT.SOU,5),
+    ];
+    p1.hand.melds = [];
+    p1.isRiichi = true;
+    p1.isFuriten = false;
+    p1.isTemporaryFuriten = false;
+
+    assert(p1.hand.isTenpai(), '_canChankan前提: Player1テンパイ');
+    const sou3Id = new Tile(SUIT.SOU, 3).id;
+    assert(p1.hand.getWaitingTileIds().includes(sou3Id), '_canChankan前提: 3sを待っている');
+
+    const kanTile = new Tile(SUIT.SOU, 3);
+    assert(g._canChankan(p1, kanTile), '_canChankan: リーチ中で待ち牌 → true');
+}
+
+// ========================
+// 槍槓: _canChankan - フリテン → false
+// ========================
+console.log('\n[槍槓: _canChankan - フリテン → false]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.dealerIndex = 0;
+
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,1),
+        new Tile(SUIT.SOU,4), new Tile(SUIT.SOU,5),
+    ];
+    p1.hand.melds = [];
+    p1.isRiichi = true;
+    p1.isFuriten = true; // フリテン
+
+    const kanTile = new Tile(SUIT.SOU, 3);
+    assert(!g._canChankan(p1, kanTile), '_canChankan: フリテン → false');
+}
+
+// ========================
+// 槍槓: _canChankan - 待ち牌でない → false
+// ========================
+console.log('\n[槍槓: _canChankan - 待ち牌でない → false]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.dealerIndex = 0;
+
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,1),
+        new Tile(SUIT.SOU,4), new Tile(SUIT.SOU,5),
+    ];
+    p1.hand.melds = [];
+    p1.isRiichi = true;
+    p1.isFuriten = false;
+
+    const kanTile = new Tile(SUIT.SOU, 1); // 1sは待ちでない
+    assert(!g._canChankan(p1, kanTile), '_canChankan: 待ち牌でない → false');
+}
+
+// ========================
+// 槍槓: _canChankan - 開き手でも槍槓役で true になる
+// ========================
+console.log('\n[槍槓: _canChankan - 開き手でも 槍槓 役で true]');
+{
+    // 槍槓(CHANKAN)自体が 1翻の役なので、isChankan=true 時は常に役あり
+    // → 役なし開き手でも _canChankan は true を返す（槍槓で役が付く）
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.dealerIndex = 0;
+
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.PIN,6), new Tile(SUIT.PIN,7), new Tile(SUIT.PIN,8),
+        new Tile(SUIT.SOU,4), new Tile(SUIT.SOU,5),
+        new Tile(SUIT.HONOR,3), new Tile(SUIT.HONOR,3), // 西雀頭（役牌なし）
+    ];
+    p1.hand.melds = [new Meld(MELD_TYPE.PON, [
+        new Tile(SUIT.HONOR,4), new Tile(SUIT.HONOR,4), new Tile(SUIT.HONOR,4),
+    ], 0, new Tile(SUIT.HONOR,4))];
+    p1.isMenzen = false;
+    p1.isRiichi = false;
+    p1.isFuriten = false;
+
+    const kanTile = new Tile(SUIT.SOU, 3); // 4s5s → 3s or 6s 待ち
+    // 槍槓は常に1翻の役 → 開き手でも役あり → true
+    assert(g._canChankan(p1, kanTile), '_canChankan: 開き手でも 槍槓役で true（役なし槍槓は存在しない）');
+}
+
+// ========================
+// 槍槓 RON: processKakan で発動（AI全員ゲーム）
+// ========================
+console.log('\n[槍槓 RON: processKakan で槍槓発動]');
+{
+    // Player0: PON(3s3s3s)済み + 手牌に3s → 加槓予定
+    // Player1: リーチ中で 3s 待ち → 槍槓 RON 可能
+    // Player2,3: ノーテン
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 0;
+    g.turn = 5;
+    g._claimsThisRound = true;
+
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.PIN,4), new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,6),
+        new Tile(SUIT.SOU,7), new Tile(SUIT.SOU,8), new Tile(SUIT.SOU,9),
+        new Tile(SUIT.SOU,3), // 加槓用の3s
+    ];
+    p0.hand.melds = [new Meld(MELD_TYPE.PON, [
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3),
+    ], 3, new Tile(SUIT.SOU,3))];
+    p0.isMenzen = false;
+    p0.isRiichi = false;
+
+    // Player1: リーチ中で 3s 両面待ち (1m2m3m 4m5m6m 7m8m9m 1p1p 4s5s)
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.MAN,4), new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,1),
+        new Tile(SUIT.SOU,4), new Tile(SUIT.SOU,5),
+    ];
+    p1.hand.melds = [];
+    p1.isRiichi = true;
+    p1.isMenzen = true;
+    p1.isFuriten = false;
+    p1.isTemporaryFuriten = false;
+
+    assert(p1.hand.isTenpai(), '槍槓前提: Player1テンパイ (3s/6s待ち)');
+    assert(p1.hand.getWaitingTileIds().includes(new Tile(SUIT.SOU,3).id),
+        '槍槓前提: 3s待ち確認');
+
+    // Player2,3: ノーテン
+    const noten = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,7), new Tile(SUIT.SOU,1),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,7), new Tile(SUIT.SOU,9), new Tile(SUIT.MAN,9),
+    ];
+    g.players[2].hand.tiles = noten();
+    g.players[3].hand.tiles = noten();
+
+    const kakanOpts = p0.hand.findKakanOptions();
+    assert(kakanOpts.length > 0, '槍槓前提: 加槓オプションあり');
+
+    let roundEndData = null;
+    g.on('roundEnd', d => { roundEndData = d; });
+
+    g.processKakan(0, 0); // Player0が加槓 → Player1が槍槓RON
+
+    assert(roundEndData !== null, '槍槓 RON: roundEnd イベント発火');
+    assert(roundEndData.result === ROUND_RESULT.RON, '槍槓 RON: result=RON');
+    assert(roundEndData.winnerIndex === 1, '槍槓 RON: winnerIndex=1 (Player1)');
+    assert(
+        roundEndData.yakuResult?.yaku?.some(y => y.key === 'CHANKAN'),
+        '槍槓 RON: 槍槓役が含まれる'
+    );
+    assert(
+        roundEndData.yakuResult?.yaku?.some(y => y.key === 'RIICHI'),
+        '槍槓 RON: リーチ役も含まれる'
+    );
+}
+
+// ========================
+// 槍槓なし: 加槓が通常完了してメルドタイプが KAKAN になる
+// ========================
+console.log('\n[槍槓なし: 加槓通常完了 → メルドタイプ KAKAN]');
+{
+    // Player0: PON(3s)済み + 3s in hand
+    // Player1-3: 3s を待っていない → 槍槓なし → 加槓そのまま完了
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.dealerIndex = 0;
+    g.currentIndex = 0;
+    g.turn = 5;
+    g._claimsThisRound = true;
+
+    const p0 = g.players[0];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.PIN,4), new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,6),
+        new Tile(SUIT.SOU,7), new Tile(SUIT.SOU,8), new Tile(SUIT.SOU,9),
+        new Tile(SUIT.SOU,3), // 加槓用
+    ];
+    p0.hand.melds = [new Meld(MELD_TYPE.PON, [
+        new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3), new Tile(SUIT.SOU,3),
+    ], 3, new Tile(SUIT.SOU,3))];
+    p0.isMenzen = false;
+
+    // Player1-3: ノーテン (3sを待っていない)
+    const noten = () => [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,5),
+        new Tile(SUIT.MAN,7), new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,7), new Tile(SUIT.SOU,1),
+        new Tile(SUIT.SOU,5), new Tile(SUIT.SOU,7), new Tile(SUIT.SOU,9), new Tile(SUIT.MAN,9),
+    ];
+    g.players[1].hand.tiles = noten();
+    g.players[2].hand.tiles = noten();
+    g.players[3].hand.tiles = noten();
+
+    const kakanOpts = p0.hand.findKakanOptions();
+    assert(kakanOpts.length > 0, '前提: 加槓オプションあり');
+
+    g.processKakan(0, 0);
+
+    // 加槓が正常完了: メルドタイプが KAKAN
+    assert(p0.hand.melds[0].type === MELD_TYPE.KAKAN, '槍槓なし: meld.type = KAKAN');
+    // 手牌から3sが消えている(加槓用の3s + 嶺上牌がある = 10枚)
+    assert(p0.hand.tiles.length >= 9, '槍槓なし: 加槓後手牌枚数が正常');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);
