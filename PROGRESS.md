@@ -228,6 +228,16 @@
 - [x] コンソールエラーがない
 - [x] 前フェーズの既知バグが解消されている（processDiscard MELD_ACTION 対応済み）
 
+## 完了タスク（第6週追加 - 午後2026-05-17）
+- [x] Yaku.js KOKUSHI_TANKI（国士無双十三面待ち）ダブル役満追加
+- [x] Yaku.js CHUURENPOUTOU_PURE（純正九連宝燈）ダブル役満追加
+- [x] evaluateYaku 十三面待ち判定・純正九連宝燈判定実装
+- [x] Player.js riichiDiscardCount フィールド追加（現物判定用）
+- [x] AILevel3.js _safetyVsPlayer 現物判定バグ修正（全捨て牌→リーチ後のみ）
+- [x] test-yaku.js 国士無双十三面待ち・純正九連宝燈テスト 16件追加
+- [x] test-ai.js riichiDiscardCount・_safetyVsPlayer テスト 6件追加
+- [x] 全469テスト通過確認
+
 ## 完了タスク（第6週追加）
 - [x] 槍槓（チャンカン）RON 完全実装: `_canChankan` / `_processChankanClaims` / `_executeKakan` / `_completePendingKakan`
 - [x] `_checkPlayerHasYaku` に `extraContext` 引数追加（isChankan 上書き対応）
@@ -266,6 +276,22 @@
 - [x] tests/test-edge-cases.js 飛びテスト7件追加（TDD・Redフェーズ確認済み）367テスト全通過
 - [x] GameScene.js 局終了パネル「次局へ」ボタン配置バグ修正（パネル外→パネル内）
 - [x] GameScene.js _onNextRound() 全プレイヤー手牌初期描画 + 飛び後描画スキップ対応
+
+## 午後セッション確認記録（2026-05-17）
+- 全テスト通過確認: 469/469 ✅ (19 + 24 + 52 + 134 + 89 + 5 + 125 + 21)
+- **役判定強化（優先度1）**: 国士無双十三面待ち・純正九連宝燈 ダブル役満実装（TDD）
+  - `KOKUSHI_TANKI`: winTileが対子牌に一致 → double=true（十三面待ち）
+  - 同一手でも winTile が非対子牌なら通常 `KOKUSHI`（単騎待ち）
+  - `CHUURENPOUTOU_PURE`: winTile除去後の分布が [3,1,1,1,1,1,1,1,3] に一致 → double=true
+  - 非純正九連宝燈（余剰牌 ≠ winTile）は通常 `CHUURENPOUTOU`
+  - test-yaku.js に 16件追加（国士無双十三面待ち/単騎・純正/非純正）
+- **AI守備判断修正（優先度3）**: 現物判定バグ修正（TDD）
+  - バグ: 全捨て牌（リーチ前も含む）を現物（100%安全）として扱っていた
+  - 修正: `Player.riichiDiscardCount` フィールド追加（`declareRiichi` 時に `discards.length` を保存）
+  - `_safetyVsPlayer`: リーチ後捨て牌のみ 100点、リーチ前捨て牌は 50点に変更
+  - 筋チェックもリーチ後捨て牌（genbutsuIds）ベースに変更（より正確）
+  - Game.js `_startRound` で `riichiDiscardCount = -1` にリセット
+  - test-ai.js に 6件追加（riichiDiscardCount 初期値/記録・_safetyVsPlayer 現物判定）
 
 ## 午前セッション確認記録（2026-05-17）
 - 全テスト通過確認: 447/447 ✅ (19 + 24 + 52 + 118 + 89 + 5 + 125 + 15)
@@ -385,7 +411,7 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
-## 次回作業内容（第6週残り）
+## 次回作業内容（第6週残り・更新済み）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
   - アニメーション・SE追加（第6週制限で保留）
