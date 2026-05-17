@@ -625,8 +625,8 @@ export class Game {
 
     // 和了（ロン）
     processRon(winnerIndex, discarderIndex) {
-        // 複数ロン宣言時に最初のロン処理でラウンドが終了している場合はスキップ
-        if (this.state === GAME_STATE.ROUND_END || this.state === GAME_STATE.GAME_END) return;
+        // 複数ロン宣言時: 先行ロン処理後に nextRound() が呼ばれると state が CLAIM 以外になるためスキップ
+        if (this.state !== GAME_STATE.CLAIM) return;
 
         const winner   = this.players[winnerIndex];
         const discarder = this.players[discarderIndex];
