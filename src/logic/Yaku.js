@@ -44,13 +44,15 @@ export const YAKU_HAN = Object.freeze({
     // 役満
     TSUUIISOU:       { name: '字一色',          yakuman: true },
     RYUUIISOU:       { name: '緑一色',          yakuman: true },
-    KOKUSHI:         { name: '国士無双',        yakuman: true },
+    KOKUSHI:         { name: '国士無双',              yakuman: true },
+    KOKUSHI_TANKI:   { name: '国士無双十三面待ち',    yakuman: true, double: true },
     SUUANKOU:        { name: '四暗刻',          yakuman: true },
     TSUMO_SUUANKOU:  { name: '四暗刻単騎',      yakuman: true, double: true },
     DAISANGEN:       { name: '大三元',          yakuman: true },
     SHOUSUUSHII:     { name: '小四喜',          yakuman: true },
     DAISUUSHII:      { name: '大四喜',          yakuman: true, double: true },
-    CHUURENPOUTOU:   { name: '九連宝燈',        yakuman: true },
+    CHUURENPOUTOU:      { name: '九連宝燈',        yakuman: true },
+    CHUURENPOUTOU_PURE: { name: '純正九連宝燈',    yakuman: true, double: true },
     SUUKANTSU:       { name: '四槓子',          yakuman: true },
     TENHOU:          { name: '天和',            yakuman: true },
     CHIIHOU:         { name: '地和',            yakuman: true },
@@ -535,7 +537,15 @@ export function evaluateYaku(hand, winTile, context) {
     if (context.isTenhou)  addYakuman('TENHOU',  YAKU_HAN.TENHOU);
     if (context.isChiihou) addYakuman('CHIIHOU', YAKU_HAN.CHIIHOU);
 
-    if (checkKokushi(hand))                  addYakuman('KOKUSHI',        YAKU_HAN.KOKUSHI);
+    if (checkKokushi(hand)) {
+        // 十三面待ち: winTileが対子牌と一致 → ダブル役満
+        const KS = [0,8,9,17,18,26,27,28,29,30,31,32,33];
+        const cnt = new Array(34).fill(0);
+        hand.tiles.forEach(t => cnt[t.id]++);
+        const pairId = KS.find(id => cnt[id] >= 2);
+        if (pairId === winTile.id) addYakuman('KOKUSHI_TANKI', YAKU_HAN.KOKUSHI_TANKI);
+        else                       addYakuman('KOKUSHI',       YAKU_HAN.KOKUSHI);
+    }
     if (checkSuuankou(hand)) {
         // 単騎待ちかどうか: winTileが雀頭になっている分解があるか（ツモ/ロン問わず）
         const decomps = decomposeClosed(hand);
@@ -551,7 +561,18 @@ export function evaluateYaku(hand, winTile, context) {
     else if (checkShousuushii(hand))         addYakuman('SHOUSUUSHII', YAKU_HAN.SHOUSUUSHII);
     if (checkTsuuiisou(hand))                addYakuman('TSUUIISOU',   YAKU_HAN.TSUUIISOU);
     if (checkRyuuiisou(hand))                addYakuman('RYUUIISOU',   YAKU_HAN.RYUUIISOU);
-    if (checkChuurenpoutou(hand))            addYakuman('CHUURENPOUTOU', YAKU_HAN.CHUURENPOUTOU);
+    if (checkChuurenpoutou(hand)) {
+        // 純正九連宝燈: winTileを除いた残りが BASE=[3,1,1,1,1,1,1,1,3] と一致 → ダブル役満
+        const suit = Math.floor(hand.tiles[0].id / 9);
+        const winRank = winTile.id - suit * 9;
+        const cnt9 = new Array(9).fill(0);
+        hand.tiles.forEach(t => cnt9[t.id - suit * 9]++);
+        cnt9[winRank]--;
+        const BASE9 = [3,1,1,1,1,1,1,1,3];
+        const isPure = cnt9.every((c, i) => c === BASE9[i]);
+        if (isPure) addYakuman('CHUURENPOUTOU_PURE', YAKU_HAN.CHUURENPOUTOU_PURE);
+        else        addYakuman('CHUURENPOUTOU',      YAKU_HAN.CHUURENPOUTOU);
+    }
     if (checkSuukantsu(hand))                addYakuman('SUUKANTSU',   YAKU_HAN.SUUKANTSU);
 
     if (yakuList.some(y => y.yakuman)) {

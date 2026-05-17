@@ -300,6 +300,70 @@ console.log('\n[selectDrawAction: リーチ宣言]');
 }
 
 // ========================
+// Player.riichiDiscardCount
+// ========================
+console.log('\n[Player.riichiDiscardCount: リーチ宣言時の捨て牌数記録]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    // 2枚捨ててからリーチ宣言
+    p0.discards.push(new Tile(SUIT.MAN, 3));
+    p0.discards.push(new Tile(SUIT.MAN, 7));
+    p0.declareRiichi(5, false);
+    assert(p0.riichiDiscardCount === 2, 'riichiDiscardCount: リーチ前捨て牌数=2を記録');
+    assert(p0.riichiDiscardCount >= 0, 'riichiDiscardCount: リーチ後は>=0');
+}
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    assert(p0.riichiDiscardCount === -1, 'riichiDiscardCount: 初期値=-1');
+}
+
+// ========================
+// _safetyVsPlayer: 現物判定
+// ========================
+console.log('\n[_safetyVsPlayer: リーチ後現物は100点]');
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const ai = new AILevel3(1);
+    const riichiPlayer = g.players[0];
+
+    // リーチ前に2枚捨て
+    const preTile = new Tile(SUIT.MAN, 3);
+    riichiPlayer.discards.push(preTile);
+    riichiPlayer.discards.push(new Tile(SUIT.MAN, 7));
+    riichiPlayer.declareRiichi(5, false); // riichiDiscardCount=2
+
+    // リーチ後に1枚捨て（これが現物）
+    const postTile = new Tile(SUIT.PIN, 5);
+    riichiPlayer.discards.push(postTile);
+    riichiPlayer.isRiichi = true;
+
+    const safety = ai._safetyVsPlayer(postTile, riichiPlayer, g);
+    assert(safety === 100, 'リーチ後捨て牌（現物）→ 安全度=100');
+}
+{
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const ai = new AILevel3(1);
+    const riichiPlayer = g.players[0];
+
+    // リーチ前に捨てた牌
+    const preTile = new Tile(SUIT.MAN, 3);
+    riichiPlayer.discards.push(preTile);
+    riichiPlayer.discards.push(new Tile(SUIT.MAN, 7));
+    riichiPlayer.declareRiichi(5, false); // riichiDiscardCount=2
+    riichiPlayer.isRiichi = true;
+
+    const safety = ai._safetyVsPlayer(preTile, riichiPlayer, g);
+    assert(safety < 100, 'リーチ前捨て牌 → 安全度<100（現物でない）');
+    assert(safety >= 40, 'リーチ前捨て牌 → 安全度>=40（比較的安全）');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);

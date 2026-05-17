@@ -189,10 +189,20 @@ export class AILevel3 extends AIBase {
 
     // 特定のリーチ相手に対する牌の安全度 (0-100)
     _safetyVsPlayer(tile, riichiPlayer, game) {
-        const discardIds = new Set(riichiPlayer.discards.map(d => d.id));
+        // リーチ後捨て牌のみを現物として扱う（リーチ前捨て牌は現物ではない）
+        const rdStart = riichiPlayer.riichiDiscardCount >= 0
+            ? riichiPlayer.riichiDiscardCount
+            : riichiPlayer.discards.length;
+        const genbutsuIds = new Set(
+            riichiPlayer.discards.slice(rdStart).map(d => d.id)
+        );
+        const allDiscardIds = new Set(riichiPlayer.discards.map(d => d.id));
 
-        // 現物（リーチ後に相手が捨てた牌）
-        if (discardIds.has(tile.id)) return 100;
+        // 現物（リーチ後捨て牌）→ 100%安全
+        if (genbutsuIds.has(tile.id)) return 100;
+
+        // リーチ前捨て牌 → 比較的安全だが保証なし
+        if (allDiscardIds.has(tile.id)) return 50;
 
         // 字牌: 3枚以上見えていれば比較的安全
         if (tile.isHonor()) {
@@ -200,7 +210,7 @@ export class AILevel3 extends AIBase {
         }
 
         // 筋
-        const sujiScore = this._checkSuji(tile, discardIds);
+        const sujiScore = this._checkSuji(tile, genbutsuIds);
         if (sujiScore > 0) return sujiScore;
 
         // 壁
