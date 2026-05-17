@@ -6,7 +6,7 @@
  */
 import { Game, GAME_STATE, ROUND_RESULT } from '../src/core/Game.js';
 
-const GAME_COUNT = 50;
+const GAME_COUNT = 200;
 const MAX_ROUNDS = 16; // 1ゲーム最大局数（無限ループ防止）
 
 let passed = 0;

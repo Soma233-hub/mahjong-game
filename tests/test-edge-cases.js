@@ -1176,6 +1176,63 @@ console.log('\n[槍槓なし: 加槓通常完了 → メルドタイプ KAKAN]')
 }
 
 // ========================
+// トランポリン: _actionQueue と _schedule の構造確認
+// ========================
+console.log('\n[トランポリン: _actionQueue 初期状態]');
+{
+    const g = new Game({ allAI: true });
+    assert(Array.isArray(g._actionQueue), '_actionQueue は配列として初期化される');
+    assert(g._actionQueue.length === 0, '_actionQueue の初期サイズは0');
+    assert(typeof g._schedule === 'function', '_schedule メソッドが存在する');
+}
+
+// ========================
+// トランポリン: _schedule の実行順序（内側のスケジュールは延期される）
+// ========================
+console.log('\n[トランポリン: _schedule の実行順序]');
+{
+    const g = new Game({ allAI: true });
+    const callOrder = [];
+
+    g._schedule(() => {
+        callOrder.push(1);
+        // 内側の _schedule は _running=true のためキューに積まれ、後で実行される
+        g._schedule(() => { callOrder.push(2); });
+        callOrder.push(3);
+    });
+
+    assert(callOrder[0] === 1, '_schedule: 外側fn内で1が呼ばれる');
+    assert(callOrder[1] === 3, '_schedule: 内側スケジュールは即時実行されない（push3が先）');
+    assert(callOrder[2] === 2, '_schedule: 内側スケジュールはキュー後に実行される');
+    assert(callOrder.length === 3, '_schedule: 合計3処理が実行される');
+}
+
+// ========================
+// トランポリン: 深い連続スケジュールでスタックオーバーフローしない
+// ========================
+console.log('\n[トランポリン: 50000回の連続スケジュールでスタックオーバーフローなし]');
+{
+    const g = new Game({ allAI: true });
+    let count = 0;
+    const MAX = 50000;
+
+    function scheduleNext() {
+        count++;
+        if (count < MAX) g._schedule(scheduleNext);
+    }
+
+    let error = null;
+    try {
+        g._schedule(scheduleNext);
+    } catch (e) {
+        error = e;
+    }
+
+    assert(error === null, `50000回連続スケジュールでエラーなし（error=${error?.message ?? 'none'}）`);
+    assert(count === MAX, `50000回全て実行された (count=${count})`);
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);

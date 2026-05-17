@@ -58,7 +58,30 @@ export class Game {
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
 
+        // トランポリン: 同期再帰をキュー駆動の反復に変換してスタック溢れを防ぐ
+        this._actionQueue     = [];
+        this._running         = false;
+
         this.eventListeners   = {};
+    }
+
+    // --- トランポリン ---
+
+    // fn をキューに積み、ループが動いていなければ起動する。
+    // ループ実行中（再帰的呼び出し）の場合はキューに追加するだけで即時 return するため
+    // コールスタックが積み上がらない。
+    _schedule(fn) {
+        this._actionQueue.push(fn);
+        if (!this._running) {
+            this._running = true;
+            try {
+                while (this._actionQueue.length > 0) {
+                    this._actionQueue.shift()();
+                }
+            } finally {
+                this._running = false;
+            }
+        }
     }
 
     // --- ゲーム開始・局管理 ---
@@ -98,7 +121,7 @@ export class Game {
         this.currentIndex = this.dealerIndex;
         this.turn = 0;
         this.state = GAME_STATE.DRAW;
-        this._processDraw();
+        this._schedule(() => this._processDraw());
     }
 
     // --- ターン処理 ---
@@ -461,7 +484,7 @@ export class Game {
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('minkan', { playerIndex, tile });
-        this._processKanDraw();
+        this._schedule(() => this._processKanDraw());
     }
 
     // 暗槓実行（自摸牌で槓）
@@ -489,7 +512,7 @@ export class Game {
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('ankan', { playerIndex, tileId });
-        this._processKanDraw();
+        this._schedule(() => this._processKanDraw());
     }
 
     // 加槓実行（ポン済み牌に追加）- 槍槓チェック付き
@@ -539,7 +562,7 @@ export class Game {
         this.wall.flipKanDora();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('kakan', { playerIndex, meldIndex, tile: addedTile });
-        this._processKanDraw();
+        this._schedule(() => this._processKanDraw());
     }
 
     // 槍槓クレーム処理
@@ -733,7 +756,7 @@ export class Game {
     _nextTurn() {
         this.currentIndex = (this.currentIndex + 1) % 4;
         this.state = GAME_STATE.DRAW;
-        this._processDraw();
+        this._schedule(() => this._processDraw());
     }
 
     _processRyuukyoku() {
