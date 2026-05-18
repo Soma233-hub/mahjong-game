@@ -408,13 +408,32 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 夜間セッション確認記録（2026-05-18）
+- 全テスト通過確認: 457/457 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 131 + 17)
+- 実装: リーチ後暗槓（Ankan after Riichi）完全実装（TDD）
+  - **背景**: GameScene がリーチ中に暗槓ボタンを完全ブロック・AIもスキップしていた（ルール違反）
+  - **正しいルール**: 待ちが変わらない暗槓はリーチ中でも可能
+  - `Game._canAnkanDuringRiichi(player, tileId)` 追加
+    - リーチ中でない → 常に true（早期 return）
+    - リーチ中: 13枚リーチ手の待ちと暗槓後10枚手の待ちを比較し、同一なら true
+    - 手牌・副露は呼び出し後に完全復元
+  - `Game.processAnkan()` に リーチ中ガード追加
+    - `isRiichi && !_canAnkanDuringRiichi(player, tileId)` → return
+  - `GameScene._showPlayer0Actions()` 修正
+    - `validAnkans` を `isRiichi ? filter(_canAnkan) : all` で計算
+    - リーチ中でも有効暗槓があれば暗槓ボタンを表示
+    - ヒントテキスト: 有効暗槓あり → "リーチ中 — 暗槓可 / ツモ切りのみ"
+  - `AILevel3.selectDrawAction()` 修正
+    - 暗槓チェックをリーチ中も行い、`_canAnkanDuringRiichi` で有効な場合は ankan を返す
+    - 加槓は引き続きリーチ中スキップ
+  - TDD: test-edge-cases.js に6件追加、test-ai.js に2件追加（計+8件）
+    - Redフェーズ確認済み (`_canAnkanDuringRiichi is not a function` エラー)
+
 ## 次回作業内容（第6週残り）
-- **チョンボRONバグ修正**: _canRon() / _calculateWin() のコンテキスト不一致調査・修正（TDD）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
   - アニメーション・SE追加（第6週制限で保留）
 - 最終デバッグ・完成確認（ブラウザ実機テスト）
-- 追加検討: 槍槓に対する人間プレイヤーUI（GameScene.js 既存 claimNeeded フローで対応済み）
 
 ## ファイル構造
 ```
@@ -429,8 +448,8 @@ mahjong-game/
 │   ├── test-yaku.js        ✅ 118テスト（第4週 + 午後セッション統合テスト追加: 四暗刻単騎/大四喜/小三元）
 │   ├── test-score.js       ✅ 89テスト（第5週 + 符計算エッジケース追加: 双碰ロン明刻40符）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   ├── test-edge-cases.js  ✅ 125テスト（槍槓17件・天和地和20件・飛び7件・流局テンパイ料・_canRon役チェック・トランポリン9件）
-│   └── test-ai.js          ✅ 15テスト（第6週・AILevel3ポン/チー判断・リーチ）
+│   ├── test-edge-cases.js  ✅ 131テスト（槍槓17件・天和地和20件・飛び7件・流局テンパイ料・_canRon役チェック・トランポリン9件・リーチ後暗槓6件）
+│   └── test-ai.js          ✅ 17テスト（AILevel3ポン/チー判断・リーチ・リーチ中暗槓2件）
 └── src/
     ├── main.js
     ├── core/

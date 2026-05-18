@@ -487,6 +487,41 @@ export class Game {
         this._schedule(() => this._processKanDraw());
     }
 
+    // リーチ中の暗槓可否: 暗槓後も待ちが変わらない場合のみ許可
+    // リーチ中でない場合は常に true を返す
+    _canAnkanDuringRiichi(player, tileId) {
+        if (!player.isRiichi) return true;
+
+        const hand = player.hand;
+
+        // 13枚リーチ手の待ち: ツモ牌（末尾）を外した状態で確認
+        const drawnTile = hand.tiles.pop();
+        const beforeWaits = hand.getWaitingTileIds();
+        hand.tiles.push(drawnTile);
+
+        // 暗槓シミュレート: 4枚除去 + ankan meld 追加
+        const savedTiles = [...hand.tiles];
+        const savedMelds = [...hand.melds];
+
+        const removedIndices = [];
+        for (let i = 0; i < hand.tiles.length; i++) {
+            if (hand.tiles[i].id === tileId) removedIndices.push(i);
+            if (removedIndices.length === 4) break;
+        }
+        const ankanTiles = removedIndices.map(i => hand.tiles[i]);
+        removedIndices.sort((a, b) => b - a).forEach(i => hand.tiles.splice(i, 1));
+        hand.melds.push(new Meld(MELD_TYPE.ANKAN, ankanTiles, -1, null));
+
+        const afterWaits = hand.getWaitingTileIds();
+
+        // 状態復元
+        hand.tiles = savedTiles;
+        hand.melds = savedMelds;
+
+        if (beforeWaits.length !== afterWaits.length) return false;
+        return beforeWaits.every(w => afterWaits.includes(w));
+    }
+
     // 暗槓実行（自摸牌で槓）
     processAnkan(playerIndex, tileId) {
         if (this.state !== GAME_STATE.PLAYER_ACTION) return;
@@ -495,6 +530,9 @@ export class Game {
         const player = this.players[playerIndex];
         const ids = player.hand.findAnkanIds();
         if (!ids.includes(tileId)) return;
+
+        // リーチ中: 待ちが変わる暗槓は禁止
+        if (player.isRiichi && !this._canAnkanDuringRiichi(player, tileId)) return;
 
         const indices = [];
         for (let i = 0; i < player.hand.tiles.length; i++) {

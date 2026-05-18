@@ -259,16 +259,20 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
+        // 暗槓ボタン（リーチ中も待ちが変わらない場合は可能）
+        const ankanIds = p0.hand.findAnkanIds();
+        const validAnkans = p0.isRiichi
+            ? ankanIds.filter(id => g._canAnkanDuringRiichi(p0, id))
+            : ankanIds;
+        if (validAnkans.length > 0) {
+            this._addButton(1050, 662, '暗槓', 0x334477, () => {
+                this._clearActionButtons();
+                g.processAnkan(0, validAnkans[0]);
+            });
+        }
+
         if (!p0.isRiichi) {
-            // 暗槓ボタン
-            const ankanIds = p0.hand.findAnkanIds();
-            if (ankanIds.length > 0) {
-                this._addButton(1050, 662, '暗槓', 0x334477, () => {
-                    this._clearActionButtons();
-                    g.processAnkan(0, ankanIds[0]);
-                });
-            }
-            // 加槓ボタン
+            // 加槓ボタン（リーチ中は不可）
             const kakanOpts = p0.hand.findKakanOptions();
             if (kakanOpts.length > 0) {
                 this._addButton(1050, 662, '加槓', 0x334477, () => {
@@ -281,7 +285,7 @@ export default class GameScene extends Phaser.Scene {
         }
 
         const hint = p0.isRiichi
-            ? 'リーチ中 — ツモ切りのみ'
+            ? validAnkans.length > 0 ? 'リーチ中 — 暗槓可 / ツモ切りのみ' : 'リーチ中 — ツモ切りのみ'
             : '捨てる牌をクリック（2回目で確定）';
         this._hintTxt.setText(hint);
 

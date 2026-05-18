@@ -300,6 +300,34 @@ console.log('\n[selectDrawAction: リーチ宣言]');
 }
 
 // ========================
+// selectDrawAction: リーチ中の有効暗槓を宣言
+// ========================
+console.log('\n[selectDrawAction: リーチ中暗槓]');
+{
+    // リーチ中・待ちが変わらない暗槓 → ankan アクション
+    // Hand: 2m3m4m + 5m6m7m + 8m9m(待ち7m) + 2p2p + 1z1z1z + drawn:1z(4枚目)
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    g.dealerIndex = 0;
+    const ai = new AILevel3(0);
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.isMenzen = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1), // 4枚目（ツモ牌）
+    ];
+    const result = ai.selectDrawAction(p0, g);
+    assert(result.action === 'ankan', 'リーチ中・有効暗槓 → AI が ankan を宣言');
+    assert(result.tileId === new Tile(SUIT.HONOR, 1).id, 'ankan する牌ID = 東(id=27)');
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);

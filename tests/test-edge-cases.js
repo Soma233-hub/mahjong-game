@@ -1233,6 +1233,104 @@ console.log('\n[トランポリン: 50000回の連続スケジュールでスタ
 }
 
 // ========================
+// リーチ後暗槓: _canAnkanDuringRiichi
+// ========================
+console.log('\n[リーチ後暗槓: _canAnkanDuringRiichi]');
+{
+    // リーチ中でない → 常に true
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    p0.isRiichi = false;
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1),
+    ];
+    p0.hand.melds = [];
+    const idE = new Tile(SUIT.HONOR, 1).id; // east wind id = 27
+    assert(g._canAnkanDuringRiichi(p0, idE), 'リーチ中でない → 常に true');
+}
+{
+    // リーチ中・有効暗槓（待ちが変わらない）→ true
+    // 13-tile riichi hand: 2m3m4m + 5m6m7m + 8m9m(待ち7m) + 2p2p + 1z1z1z
+    // + drawn 1z（4枚目の東）= 14 tiles
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1), // 4枚目（ツモ牌・末尾）
+    ];
+    const idE = new Tile(SUIT.HONOR, 1).id;
+    assert(g._canAnkanDuringRiichi(p0, idE), 'リーチ中・有効暗槓 → true（待ち 7m 変わらず）');
+}
+{
+    // _canAnkanDuringRiichi 呼び出し後に手牌・副露状態が復元されること
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1),
+    ];
+    const idE = new Tile(SUIT.HONOR, 1).id;
+    const beforeTileCount = p0.hand.tiles.length;
+    const beforeMeldCount = p0.hand.melds.length;
+    g._canAnkanDuringRiichi(p0, idE);
+    assert(p0.hand.tiles.length === beforeTileCount, '呼び出し後に tiles 枚数が復元される');
+    assert(p0.hand.melds.length === beforeMeldCount, '呼び出し後に melds 数が復元される');
+}
+
+// ========================
+// リーチ後暗槓: processAnkan でリーチ中でも成功
+// ========================
+console.log('\n[リーチ後暗槓: processAnkan でリーチ中に成功]');
+{
+    // P0 を人間プレイヤーにして自動進行を抑制
+    const g = new Game();  // P0=human
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.currentIndex = 0;
+    g.turn = 5;
+    g.dealerIndex = 0;
+
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.isMenzen = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1),
+    ];
+    const idE = new Tile(SUIT.HONOR, 1).id;
+    g.processAnkan(0, idE);
+    // 暗槓後: ankan meld が追加され state が PLAYER_ACTION (嶺上牌ツモ後) になる
+    assert(p0.hand.melds.length > 0, 'リーチ中・有効暗槓 → 副露が追加される');
+    assert(g.state === GAME_STATE.PLAYER_ACTION,
+        `リーチ中・有効暗槓 → 嶺上ツモ後 PLAYER_ACTION (state=${g.state})`);
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed + failed}件中 ${passed}件通過, ${failed}件失敗`);
