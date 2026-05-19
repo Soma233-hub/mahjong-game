@@ -54,6 +54,7 @@ export class Game {
         this._claimsThisRound = false; // ポン/チー/明槓で true → 地和不成立
         this._isChankan       = false; // 加槓に対するロン処理中
         this._pendingKakan    = null;  // 槍槓チェック中の保留加槓情報
+        this._fourKanRyuukyoku = false; // 四槓散了（異なるプレイヤーが計4槓）フラグ
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -97,9 +98,10 @@ export class Game {
 
     _startRound() {
         this.wall.init();
-        this._claimsThisRound = false;
-        this._isChankan       = false;
-        this._pendingKakan    = null;
+        this._claimsThisRound  = false;
+        this._isChankan        = false;
+        this._pendingKakan     = null;
+        this._fourKanRyuukyoku = false;
         this.players.forEach(p => {
             p.hand.tiles  = [];
             p.hand.melds  = [];
@@ -144,6 +146,21 @@ export class Game {
         }
     }
 
+    // 合計カン数が4で同一プレイヤーでない場合に四槓散了フラグを設定
+    _checkFourKanRyuukyoku() {
+        const total = this.wall.kanCount;
+        if (total < 4) return;
+        const kansByPlayer = this.players.map(p =>
+            p.hand.melds.filter(m =>
+                m.type === MELD_TYPE.ANKAN ||
+                m.type === MELD_TYPE.MINKAN ||
+                m.type === MELD_TYPE.KAKAN
+            ).length
+        );
+        const oneHasAll = kansByPlayer.some(k => k === total);
+        if (!oneHasAll) this._fourKanRyuukyoku = true;
+    }
+
     _processKanDraw() {
         this._isRinshan = true;
         const player = this.players[this.currentIndex];
@@ -155,6 +172,19 @@ export class Game {
         player.draw(tile);
         this.state = GAME_STATE.PLAYER_ACTION;
         this.emit('kanDraw', { playerIndex: this.currentIndex, tile });
+
+        // 四槓散了: ツモ和了のみ可能・それ以外は流局
+        if (this._fourKanRyuukyoku) {
+            if (!player.isHuman && player.ai) {
+                if (player.hand.isComplete() && this.canDeclareWin(player.index)) {
+                    this.processWin(player.index);
+                } else {
+                    this._processRyuukyoku();
+                }
+            }
+            // 人間プレイヤー: processDiscard 時に流局へ誘導（GameScene 側で対応）
+            return;
+        }
 
         if (!player.isHuman && player.ai) {
             this._processAIAction(player);
@@ -186,6 +216,12 @@ export class Game {
         if (this.state !== GAME_STATE.PLAYER_ACTION &&
             this.state !== GAME_STATE.MELD_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
+
+        // 四槓散了: 人間が捨て牌を選んだ場合は流局に誘導
+        if (this._fourKanRyuukyoku) {
+            this._processRyuukyoku();
+            return;
+        }
 
         const player = this.players[playerIndex];
         const tile = player.discard(tileIndex);
@@ -482,6 +518,7 @@ export class Game {
 
         this.currentIndex = playerIndex;
         this.wall.flipKanDora();
+        this._checkFourKanRyuukyoku();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('minkan', { playerIndex, tile });
         this._schedule(() => this._processKanDraw());
@@ -526,6 +563,7 @@ export class Game {
     processAnkan(playerIndex, tileId) {
         if (this.state !== GAME_STATE.PLAYER_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
+        if (this._fourKanRyuukyoku) return; // 四槓散了中は槓不可
 
         const player = this.players[playerIndex];
         const ids = player.hand.findAnkanIds();
@@ -548,6 +586,7 @@ export class Game {
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.wall.flipKanDora();
+        this._checkFourKanRyuukyoku();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('ankan', { playerIndex, tileId });
         this._schedule(() => this._processKanDraw());
@@ -557,6 +596,7 @@ export class Game {
     processKakan(playerIndex, meldIndex) {
         if (this.state !== GAME_STATE.PLAYER_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
+        if (this._fourKanRyuukyoku) return; // 四槓散了中は槓不可
 
         const player = this.players[playerIndex];
         const opts = player.hand.findKakanOptions();
@@ -598,6 +638,7 @@ export class Game {
 
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
         this.wall.flipKanDora();
+        this._checkFourKanRyuukyoku();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('kakan', { playerIndex, meldIndex, tile: addedTile });
         this._schedule(() => this._processKanDraw());

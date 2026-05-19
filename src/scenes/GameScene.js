@@ -251,6 +251,19 @@ export default class GameScene extends Phaser.Scene {
 
         if (g.state !== GAME_STATE.PLAYER_ACTION || g.currentIndex !== 0) return;
 
+        // 四槓散了: ツモ和了のみ可能
+        if (g._fourKanRyuukyoku) {
+            if (g.canDeclareWin(0)) {
+                this._addButton(900, 662, 'ツモ', 0x884400, () => {
+                    this._clearActionButtons();
+                    g.processWin(0);
+                });
+            }
+            this._hintTxt.setText('四槓散了 — ツモ和了のみ可能（それ以外は流局）');
+            this._setupHandClick(p0);
+            return;
+        }
+
         // ツモ和了ボタン（役チェック込み）
         if (g.canDeclareWin(0)) {
             this._addButton(900, 662, 'ツモ', 0x884400, () => {
@@ -366,11 +379,15 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _findRiichiDiscards(player) {
-        if (!player.isMenzen || player.isRiichi || player.score < 1000) return [];
+        if (!player.isMenzen || player.isRiichi || player.score < 1000 || player.isFuriten) return [];
         const result = [];
         for (let i = 0; i < player.hand.tiles.length; i++) {
             const removed = player.hand.tiles.splice(i, 1)[0];
-            if (player.hand.isTenpai()) result.push(i);
+            if (player.hand.isTenpai()) {
+                const waits = player.hand.getWaitingTileIds();
+                const furiten = player.discards.some(d => waits.includes(d.id));
+                if (!furiten) result.push(i);
+            }
             player.hand.tiles.splice(i, 0, removed);
         }
         return result;

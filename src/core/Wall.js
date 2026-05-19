@@ -44,10 +44,12 @@ export class Wall {
         return this.deadWall[this._rinshansUsed++] || null;
     }
 
-    // カンドラをめくる: deadWallを変更しないため固定インデックスが使用可能
+    // カンドラをめくる: 最大4回まで（deadWall[5-8]）
     flipKanDora() {
         this.kanCount++;
-        this.doraIndicators.push(this.deadWall[4 + this.kanCount]);
+        if (this.kanCount <= 4) {
+            this.doraIndicators.push(this.deadWall[4 + this.kanCount]);
+        }
     }
 
     // 裏ドラを開示（リーチ和了時）
