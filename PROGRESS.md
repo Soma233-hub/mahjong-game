@@ -419,6 +419,15 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 夜間セッション確認記録（2026-05-20）
+- 全テスト通過確認: 463/463 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 137 + 17)
+- **Phase UI-0 全5タスク完了**
+  - ①ドラ指示牌表示: `_buildStaticUI` に「ドラ:」ラベル追加、`_updateDoraDisplay()` で小タイル描画。`_updateInfoTexts()` から毎回更新、次局時にクリア。
+  - ②勝者名修正: `_onRoundEnd` の `Player${winnerIndex}` → `['自分','右','対面','左'][winnerIndex]` に変更。チョンボも同様修正。
+  - ③副露牌横向き: `_drawTile` に `rotated` オプション追加（w/h swap + `txt.setAngle(90)`）。`_getMeldRotatedIndex(meld)` でクレーム牌を `findIndex` で特定し横向き描画。P0/P2（横並び）・P1/P3（縦並び）それぞれタイル幅/高さを動的計算してレイアウト。
+  - ④ウマ精算: `ResultScene` を全面改修。10-20ウマ（1位+20, 2位+10, 3位-10, 4位-20）を計算し精算点 = `(持ち点-30000)/1000 + ウマ` を表示。列ヘッダー・精算式注記も追加。
+  - ⑤リーチ棒視覚表示: `_updateRiichiSticks()` でリーチ中プレイヤーごとにクリーム色の棒型矩形を描画（P0:横、P1/P3:縦、P2:横）。`_updateInfoTexts()` から毎回更新。
+
 ## 夜間セッション確認記録（2026-05-19）
 - 全テスト通過確認: 463/463 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 137 + 17)
 - 1000ゲームシミュレーション（2回実施）: クラッシュ0・チョンボ0・点数保存則違反0 ✅
@@ -477,11 +486,11 @@
 
 | タスク | 対象ファイル | 状態 |
 |--------|------------|------|
-| ①ドラ指示牌表示 | GameScene._buildStaticUI, game_.wall.doraIndicators | ⬜ 未着手 |
-| ②勝者名修正 | GameScene._onRoundEnd（Player0→自分） | ⬜ 未着手 |
-| ③副露牌横向き | _renderMelds, _drawTile rotated option | ⬜ 未着手 |
-| ④ウマ精算 | ResultScene, calcUma helper（10-20ウマ） | ⬜ 未着手 |
-| ⑤リーチ棒視覚表示 | GameScene._buildStaticUI | ⬜ 未着手 |
+| ①ドラ指示牌表示 | GameScene._buildStaticUI, game_.wall.doraIndicators | ✅ 完了 |
+| ②勝者名修正 | GameScene._onRoundEnd（Player0→自分） | ✅ 完了 |
+| ③副露牌横向き | _renderMelds, _drawTile rotated option | ✅ 完了 |
+| ④ウマ精算 | ResultScene, calcUma helper（10-20ウマ） | ✅ 完了 |
+| ⑤リーチ棒視覚表示 | GameScene._buildStaticUI | ✅ 完了 |
 
 Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り替える。
 
