@@ -17,10 +17,11 @@ export class Player {
         this.score     = 25000; // 初期持ち点
 
         // リーチ関連
-        this.isRiichi       = false;
-        this.isDoubleRiichi = false;
-        this.riichiTurn     = -1;   // リーチ宣言したターン番号
-        this.isMenzen       = true; // 門前か否か（副露で false）
+        this.isRiichi           = false;
+        this.isDoubleRiichi     = false;
+        this.riichiTurn         = -1;   // リーチ宣言したターン番号
+        this.riichiDiscardCount = -1;   // リーチ宣言時の捨て牌数（現物判定用）
+        this.isMenzen           = true; // 門前か否か（副露で false）
 
         // フリテン
         this.isFuriten          = false; // 通常フリテン
@@ -45,11 +46,12 @@ export class Player {
 
     // リーチ宣言（discardの前に呼ぶ）
     declareRiichi(turn, isDouble = false) {
-        this.isRiichi       = true;
-        this.isDoubleRiichi = isDouble;
-        this.riichiTurn     = turn;
-        this.isIppatsu      = true;
-        this.score         -= 1000;
+        this.isRiichi           = true;
+        this.isDoubleRiichi     = isDouble;
+        this.riichiTurn         = turn;
+        this.riichiDiscardCount = this.discards.length; // リーチ前の捨て牌数を記録
+        this.isIppatsu          = true;
+        this.score             -= 1000;
     }
 
     // フリテン判定（待ち牌が捨て牌にある）

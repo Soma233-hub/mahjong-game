@@ -958,6 +958,72 @@ console.log('\n[evaluateYaku: 小三元]');
 }
 
 // ==============================================================
+// 国士無双十三面待ち（ダブル役満）
+// ==============================================================
+console.log('\n=== 国士無双十三面待ち（ダブル役満）===');
+{
+    // 1m×2 + 残り12種 → winTile=1m（対子=1m → 十三面待ち）
+    const h = makeHand(['1m','1m','9m','1p','9p','1s','9s','1z','2z','3z','4z','5z','6z','7z']);
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const r = evaluateYaku(h, t('1m'), ctx);
+    assert(r.isYakuman, '国士無双十三面待ち → 役満');
+    assert(r.yaku.some(y => y.key === 'KOKUSHI_TANKI'), '国士無双十三面待ち → KOKUSHI_TANKI');
+    assert(r.yaku.find(y => y.key === 'KOKUSHI_TANKI')?.double === true,
+           '国士無双十三面待ち → double=true');
+    assert(!r.yaku.some(y => y.key === 'KOKUSHI'), '国士無双十三面待ち → KOKUSHI なし');
+}
+{
+    // 同一手でwinTile=7z（中） → 単騎待ち（1m対子の単騎）→ 通常KOKUSHI
+    const h = makeHand(['1m','1m','9m','1p','9p','1s','9s','1z','2z','3z','4z','5z','6z','7z']);
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const r = evaluateYaku(h, t('7z'), ctx);
+    assert(r.isYakuman, '国士無双単騎 → 役満');
+    assert(r.yaku.some(y => y.key === 'KOKUSHI'), '国士無双単騎 → KOKUSHI あり');
+    assert(r.yaku.find(y => y.key === 'KOKUSHI')?.double !== true,
+           '国士無双単騎 → double=false');
+    assert(!r.yaku.some(y => y.key === 'KOKUSHI_TANKI'), '国士無双単騎 → KOKUSHI_TANKI なし');
+}
+
+// ==============================================================
+// 純正九連宝燈（ダブル役満）
+// ==============================================================
+console.log('\n=== 純正九連宝燈（ダブル役満）===');
+{
+    // 1m×3 2m 3m 4m 5m×2 6m 7m 8m 9m×3 → winTile=5m（余剰牌=5m → 純正）
+    const h = makeHand(['1m','1m','1m','2m','3m','4m','5m','5m','6m','7m','8m','9m','9m','9m']);
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const r = evaluateYaku(h, t('5m'), ctx);
+    assert(r.isYakuman, '純正九連宝燈 → 役満');
+    assert(r.yaku.some(y => y.key === 'CHUURENPOUTOU_PURE'), '純正九連宝燈 → CHUURENPOUTOU_PURE');
+    assert(r.yaku.find(y => y.key === 'CHUURENPOUTOU_PURE')?.double === true,
+           '純正九連宝燈 → double=true');
+    assert(!r.yaku.some(y => y.key === 'CHUURENPOUTOU'), '純正九連宝燈 → CHUURENPOUTOU なし');
+}
+{
+    // 1m×3 2m 3m 4m 5m×2 6m 7m 8m 9m×3 → winTile=9m（余剰牌=5m≠9m → 非純正）
+    const h = makeHand(['1m','1m','1m','2m','3m','4m','5m','5m','6m','7m','8m','9m','9m','9m']);
+    const ctx = { isTsumo: true, isRiichi: false, isDoubleRiichi: false, isIppatsu: false,
+                  seatWind: HONOR.EAST, roundWind: HONOR.EAST,
+                  isHaitei: false, isHoutei: false, isRinshan: false, isChankan: false,
+                  isTenhou: false, isChiihou: false };
+    const r = evaluateYaku(h, t('9m'), ctx);
+    assert(r.isYakuman, '九連宝燈（非純正）→ 役満');
+    assert(r.yaku.some(y => y.key === 'CHUURENPOUTOU'), '九連宝燈（非純正）→ CHUURENPOUTOU あり');
+    assert(r.yaku.find(y => y.key === 'CHUURENPOUTOU')?.double !== true,
+           '九連宝燈（非純正）→ double=false');
+    assert(!r.yaku.some(y => y.key === 'CHUURENPOUTOU_PURE'), '九連宝燈（非純正）→ CHUURENPOUTOU_PURE なし');
+}
+
+// ==============================================================
 // 結果
 // ==============================================================
 console.log(`\n結果: ${passed} passed, ${failed} failed`);

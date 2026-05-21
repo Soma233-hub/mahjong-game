@@ -108,6 +108,7 @@ export class Game {
             p.discards    = [];
             p.isRiichi    = false;
             p.isDoubleRiichi = false;
+            p.riichiDiscardCount = -1;
             p.isFuriten   = false;
             p.isTemporaryFuriten = false;
             p.isIppatsu   = false;
