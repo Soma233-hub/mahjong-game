@@ -1,24 +1,16 @@
 import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
 
 // --- タイル描画定数 ---
-const TW = 38;  // タイル幅
-const TH = 52;  // タイル高さ
-const TG = 3;   // タイル間隔
-
-const SUIT_COLORS = {
-    man:   { bg: 0xffe0e0, text: '#cc0000' },
-    pin:   { bg: 0xe0e8ff, text: '#0033cc' },
-    sou:   { bg: 0xe0ffe0, text: '#006600' },
-    honor: { bg: 0xf0f0f0, text: '#333333' },
-};
-const HONOR_LABELS = ['', '東', '南', '西', '北', '白', '發', '中'];
+const TW = 44;  // タイル幅（1-D: 38→44）
+const TH = 60;  // タイル高さ（1-D: 52→60）
+const TG = 2;   // タイル間隔
 
 // 捨て牌ゾーン（プレイヤー0=下, 1=右, 2=上, 3=左）
 const DISCARD_ZONES = [
-    { x: 510, y: 435, dir: 'h', cols: 6 },  // Player0 (下)
-    { x: 760, y: 295, dir: 'v', cols: 4 },  // Player1 (右)
-    { x: 510, y: 210, dir: 'h', cols: 6 },  // Player2 (上) ← 上から下へ
-    { x: 370, y: 295, dir: 'v', cols: 4 },  // Player3 (左)
+    { x: 510, y: 432, dir: 'h', cols: 6 },  // Player0 (下)
+    { x: 755, y: 295, dir: 'v', cols: 4 },  // Player1 (右)
+    { x: 510, y: 242, dir: 'h', cols: 6 },  // Player2 (上)
+    { x: 375, y: 295, dir: 'v', cols: 4 },  // Player3 (左)
 ];
 
 export default class GameScene extends Phaser.Scene {
@@ -268,7 +260,7 @@ export default class GameScene extends Phaser.Scene {
         // 四槓散了: ツモ和了のみ可能
         if (g._fourKanRyuukyoku) {
             if (g.canDeclareWin(0)) {
-                this._addButton(900, 662, 'ツモ', 0x884400, () => {
+                this._addButton(1020, 640, 'ツモ', 0x884400, () => {
                     this._clearActionButtons();
                     g.processWin(0);
                 });
@@ -280,7 +272,7 @@ export default class GameScene extends Phaser.Scene {
 
         // ツモ和了ボタン（役チェック込み）
         if (g.canDeclareWin(0)) {
-            this._addButton(900, 662, 'ツモ', 0x884400, () => {
+            this._addButton(1020, 640, 'ツモ', 0x884400, () => {
                 this._clearActionButtons();
                 g.processWin(0);
             });
@@ -292,7 +284,7 @@ export default class GameScene extends Phaser.Scene {
             ? ankanIds.filter(id => g._canAnkanDuringRiichi(p0, id))
             : ankanIds;
         if (validAnkans.length > 0) {
-            this._addButton(1050, 662, '暗槓', 0x334477, () => {
+            this._addButton(1140, 640, '暗槓', 0x334477, () => {
                 this._clearActionButtons();
                 g.processAnkan(0, validAnkans[0]);
             });
@@ -302,7 +294,7 @@ export default class GameScene extends Phaser.Scene {
             // 加槓ボタン（リーチ中は不可）
             const kakanOpts = p0.hand.findKakanOptions();
             if (kakanOpts.length > 0) {
-                this._addButton(1050, 662, '加槓', 0x334477, () => {
+                this._addButton(1140, 640, '加槓', 0x334477, () => {
                     this._clearActionButtons();
                     g.processKakan(0, kakanOpts[0].meldIndex);
                 });
@@ -323,14 +315,13 @@ export default class GameScene extends Phaser.Scene {
         const objs = this._handGfxList[0];
         objs.forEach((obj, idx) => {
             if (!obj?.bg) return;
-            const tile = player.hand.tiles[idx];
             obj.bg.setInteractive({ useHandCursor: true })
                 .off('pointerover').off('pointerout').off('pointerdown')
                 .on('pointerover', () => {
-                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(0xffffaa);
+                    if (this._selectedIdx !== idx) obj.bg.setTint(0xffffcc);
                 })
                 .on('pointerout', () => {
-                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(this._tileColor(tile));
+                    if (this._selectedIdx !== idx) obj.bg.clearTint();
                 })
                 .on('pointerdown', () => this._onTileClick(idx, player));
         });
@@ -370,8 +361,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _showRiichiButton(tileIdx) {
-        const bg  = this.add.rectangle(760, 662, 100, 36, 0xaa2200).setDepth(15);
-        const txt = this.add.text(760, 662, 'リーチ', {
+        const bg  = this.add.rectangle(820, 640, 100, 36, 0xaa2200).setDepth(15);
+        const txt = this.add.text(820, 640, 'リーチ', {
             fontSize: '16px', color: '#fff', fontFamily: 'monospace',
         }).setOrigin(0.5).setDepth(16);
         bg.setInteractive({ useHandCursor: true })
@@ -481,43 +472,34 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // =====================================
-    // タイル描画ヘルパー
+    // タイル描画ヘルパー（1-A/1-B/1-C: テクスチャ方式）
     // =====================================
 
-    _tileColor(tile) {
-        return SUIT_COLORS[tile?.suit]?.bg ?? 0xeeeeee;
-    }
-
-    _tileLabel(tile) {
-        if (tile.suit === 'honor') return HONOR_LABELS[tile.number] ?? '?';
-        const suitChar = { man: '萬', pin: '筒', sou: '索' }[tile.suit];
-        return `${tile.number}${suitChar}`;
-    }
-
+    /**
+     * BootScene で生成したテクスチャを使って牌を描画する。
+     * @returns {{ bg: Phaser.GameObjects.Image, txt: null }}
+     */
     _drawTile(x, y, tile, { selected = false, back = false, small = false, rotated = false } = {}) {
         const w = small ? Math.floor(TW * 0.82) : TW;
         const h = small ? Math.floor(TH * 0.82) : TH;
-        const bw = rotated ? h : w;
-        const bh = rotated ? w : h;
-        const bgColor = back
-            ? 0x334477
-            : selected ? 0xffff88 : this._tileColor(tile);
 
-        const bg = this.add.rectangle(x, y, bw - 1, bh - 1, bgColor)
-            .setStrokeStyle(1, 0x888888);
-
-        let txt = null;
-        if (!back) {
-            const tcolor = tile.isRed ? '#ff4400' : (SUIT_COLORS[tile.suit]?.text ?? '#000');
-            txt = this.add.text(x, y, this._tileLabel(tile), {
-                fontSize: small ? '12px' : '14px',
-                color: tcolor,
-                fontFamily: 'monospace',
-            }).setOrigin(0.5);
-            if (rotated) txt.setAngle(90);
+        // テクスチャキー解決
+        let key;
+        if (back) {
+            key = 'tile_back';
+        } else {
+            key = tile.isRed
+                ? `tile_${tile.suit}_${tile.number}_red`
+                : `tile_${tile.suit}_${tile.number}`;
         }
 
-        return { bg, txt };
+        const img = this.add.image(x, y, key);
+        // setDisplaySize は回転前サイズを指定（setAngle が視覚的に入れ替える）
+        img.setDisplaySize(w, h);
+        if (rotated) img.setAngle(90);
+        if (selected) img.setTint(0xffff88);
+
+        return { bg: img, txt: null };
     }
 
     _clearGfxList(list) {
@@ -547,14 +529,14 @@ export default class GameScene extends Phaser.Scene {
     _renderHand0(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const totalW = n * (TW + TG);
-        const startX = 640 - totalW / 2 + TW / 2;
+        const step   = TW + TG;
+        const startX = 640 - (n * step) / 2 + step / 2;
 
         tiles.forEach((tile, idx) => {
-            const x    = startX + idx * (TW + TG);
+            const x      = startX + idx * step;
             const isLast = idx === n - 1;
-            const dy   = isLast ? -8 : 0; // ツモ牌を少し持ち上げる
-            const obj  = this._drawTile(x, 660 + dy, tile, {
+            const dy     = isLast ? -8 : 0; // ツモ牌を少し持ち上げる
+            const obj    = this._drawTile(x, 662 + dy, tile, {
                 selected: this._selectedIdx === idx,
             });
             this._handGfxList[0].push(obj);
@@ -564,19 +546,23 @@ export default class GameScene extends Phaser.Scene {
     _renderHandTop(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startX = 640 - (n * (TW + TG)) / 2 + TW / 2;
+        const step   = TW + TG;
+        const startX = 640 - (n * step) / 2 + step / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(startX + idx * (TW + TG), 72, tile, { back: true });
+            const obj = this._drawTile(startX + idx * step, 72, tile, { back: true });
             this._handGfxList[2].push(obj);
         });
     }
 
+    // P1/P3 は牌を rotated=true で縦に並べる（TW を縦ステップに使用）
     _renderHandRight(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        const step   = TW + TG;                      // 回転後の有効高さ = TW
+        const startY = 360 - (n * step) / 2 + step / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(1240, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(1218, startY + idx * step, tile,
+                { back: true, rotated: true });
             this._handGfxList[1].push(obj);
         });
     }
@@ -584,9 +570,11 @@ export default class GameScene extends Phaser.Scene {
     _renderHandLeft(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        const step   = TW + TG;
+        const startY = 360 - (n * step) / 2 + step / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(42, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(62, startY + idx * step, tile,
+                { back: true, rotated: true });
             this._handGfxList[3].push(obj);
         });
     }
@@ -647,15 +635,15 @@ export default class GameScene extends Phaser.Scene {
         const sh = Math.floor(TH * 0.82);
 
         if (playerIndex === 0) {
-            // 下: 手牌右端(~885)の右に横並び
-            let gx = 920;
+            // 下: 手牌右端の右に横並び（TW=44 で右端は ~975）
+            let gx = 978;
             melds.forEach(meld => {
                 const rIdx = this._getMeldRotatedIndex(meld);
                 let tx = gx;
                 meld.tiles.forEach((tile, ti) => {
                     const rot = ti === rIdx;
                     const tileW = rot ? sh : sw;
-                    const obj = this._drawTile(tx + tileW / 2, 660, tile, { small: true, rotated: rot });
+                    const obj = this._drawTile(tx + tileW / 2, 662, tile, { small: true, rotated: rot });
                     this._meldGfxList[0].push(obj);
                     tx += tileW + 2;
                 });
@@ -663,8 +651,8 @@ export default class GameScene extends Phaser.Scene {
             });
 
         } else if (playerIndex === 2) {
-            // 上: 13枚手牌右端(~853)の右に横並び
-            let gx = 880;
+            // 上: 手牌右端の右に横並び
+            let gx = 962;
             melds.forEach(meld => {
                 const rIdx = this._getMeldRotatedIndex(meld);
                 let tx = gx;
@@ -679,23 +667,7 @@ export default class GameScene extends Phaser.Scene {
             });
 
         } else if (playerIndex === 1) {
-            // 右: 手牌(x=1240)の左に縦並び
-            let gy = 100;
-            melds.forEach(meld => {
-                const rIdx = this._getMeldRotatedIndex(meld);
-                let ty = gy;
-                meld.tiles.forEach((tile, ti) => {
-                    const rot = ti === rIdx;
-                    const tileH = rot ? sw : sh; // 横向き牌は縦方向が短い
-                    const obj = this._drawTile(1190, ty + tileH / 2, tile, { small: true, rotated: rot });
-                    this._meldGfxList[1].push(obj);
-                    ty += tileH + 2;
-                });
-                gy = ty + 4;
-            });
-
-        } else {
-            // 左: 手牌(x=42)の右に縦並び
+            // 右: 手牌(x=1218)の左に縦並び
             let gy = 100;
             melds.forEach(meld => {
                 const rIdx = this._getMeldRotatedIndex(meld);
@@ -703,7 +675,23 @@ export default class GameScene extends Phaser.Scene {
                 meld.tiles.forEach((tile, ti) => {
                     const rot = ti === rIdx;
                     const tileH = rot ? sw : sh;
-                    const obj = this._drawTile(90, ty + tileH / 2, tile, { small: true, rotated: rot });
+                    const obj = this._drawTile(1162, ty + tileH / 2, tile, { small: true, rotated: rot });
+                    this._meldGfxList[1].push(obj);
+                    ty += tileH + 2;
+                });
+                gy = ty + 4;
+            });
+
+        } else {
+            // 左: 手牌(x=62)の右に縦並び
+            let gy = 100;
+            melds.forEach(meld => {
+                const rIdx = this._getMeldRotatedIndex(meld);
+                let ty = gy;
+                meld.tiles.forEach((tile, ti) => {
+                    const rot = ti === rIdx;
+                    const tileH = rot ? sw : sh;
+                    const obj = this._drawTile(118, ty + tileH / 2, tile, { small: true, rotated: rot });
                     this._meldGfxList[3].push(obj);
                     ty += tileH + 2;
                 });
@@ -739,10 +727,10 @@ export default class GameScene extends Phaser.Scene {
         const g = this.game_;
         // 各プレイヤーのリーチ棒位置 [x, y, width, height]
         const configs = [
-            [640, 625, 70, 9],   // P0 下
-            [1130, 360, 9, 70],  // P1 右
-            [640,  100, 70, 9],  // P2 上
-            [150,  360, 9, 70],  // P3 左
+            [640, 624, 70, 8],   // P0 下（手牌 y=662 の上）
+            [1148, 360, 8, 70],  // P1 右
+            [640,  107, 70, 8],  // P2 上（手牌 y=72 の下）
+            [132,  360, 8, 70],  // P3 左
         ];
 
         g.players.forEach((p, i) => {
