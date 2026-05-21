@@ -13,6 +13,7 @@ import { Tile, SUIT } from '../src/core/Tile.js';
 import { AILevel3 } from '../src/ai/AILevel3.js';
 import { Hand } from '../src/core/Hand.js';
 import { Meld, MELD_TYPE } from '../src/core/Meld.js';
+import { Wall } from '../src/core/Wall.js';
 
 let passed = 0;
 let failed = 0;
@@ -1230,6 +1231,204 @@ console.log('\n[トランポリン: 50000回の連続スケジュールでスタ
 
     assert(error === null, `50000回連続スケジュールでエラーなし（error=${error?.message ?? 'none'}）`);
     assert(count === MAX, `50000回全て実行された (count=${count})`);
+}
+
+// ========================
+// リーチ後暗槓: _canAnkanDuringRiichi
+// ========================
+console.log('\n[リーチ後暗槓: _canAnkanDuringRiichi]');
+{
+    // リーチ中でない → 常に true
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    p0.isRiichi = false;
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1),
+    ];
+    p0.hand.melds = [];
+    const idE = new Tile(SUIT.HONOR, 1).id; // east wind id = 27
+    assert(g._canAnkanDuringRiichi(p0, idE), 'リーチ中でない → 常に true');
+}
+{
+    // リーチ中・有効暗槓（待ちが変わらない）→ true
+    // 13-tile riichi hand: 2m3m4m + 5m6m7m + 8m9m(待ち7m) + 2p2p + 1z1z1z
+    // + drawn 1z（4枚目の東）= 14 tiles
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1), // 4枚目（ツモ牌・末尾）
+    ];
+    const idE = new Tile(SUIT.HONOR, 1).id;
+    assert(g._canAnkanDuringRiichi(p0, idE), 'リーチ中・有効暗槓 → true（待ち 7m 変わらず）');
+}
+{
+    // _canAnkanDuringRiichi 呼び出し後に手牌・副露状態が復元されること
+    const g = new Game({ allAI: true });
+    g.wall.init();
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1),
+    ];
+    const idE = new Tile(SUIT.HONOR, 1).id;
+    const beforeTileCount = p0.hand.tiles.length;
+    const beforeMeldCount = p0.hand.melds.length;
+    g._canAnkanDuringRiichi(p0, idE);
+    assert(p0.hand.tiles.length === beforeTileCount, '呼び出し後に tiles 枚数が復元される');
+    assert(p0.hand.melds.length === beforeMeldCount, '呼び出し後に melds 数が復元される');
+}
+
+// ========================
+// リーチ後暗槓: processAnkan でリーチ中でも成功
+// ========================
+console.log('\n[リーチ後暗槓: processAnkan でリーチ中に成功]');
+{
+    // P0 を人間プレイヤーにして自動進行を抑制
+    const g = new Game();  // P0=human
+    g.wall.init();
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g.currentIndex = 0;
+    g.turn = 5;
+    g.dealerIndex = 0;
+
+    const p0 = g.players[0];
+    p0.isRiichi = true;
+    p0.isMenzen = true;
+    p0.hand.melds = [];
+    p0.hand.tiles = [
+        new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3), new Tile(SUIT.MAN,4),
+        new Tile(SUIT.MAN,5), new Tile(SUIT.MAN,6), new Tile(SUIT.MAN,7),
+        new Tile(SUIT.MAN,8), new Tile(SUIT.MAN,9),
+        new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,2),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,1),
+    ];
+    const idE = new Tile(SUIT.HONOR, 1).id;
+    g.processAnkan(0, idE);
+    // 暗槓後: ankan meld が追加され state が PLAYER_ACTION (嶺上牌ツモ後) になる
+    assert(p0.hand.melds.length > 0, 'リーチ中・有効暗槓 → 副露が追加される');
+    assert(g.state === GAME_STATE.PLAYER_ACTION,
+        `リーチ中・有効暗槓 → 嶺上ツモ後 PLAYER_ACTION (state=${g.state})`);
+}
+
+// ========================
+// 4槓散了 / Wall.flipKanDora 防御
+// ========================
+console.log('\n[4槓散了 / Wall防御]');
+
+{
+    // Wall.flipKanDora を 10回呼んでも doraIndicators に undefined が追加されない
+    const wall = new Wall();
+    wall.init();
+    for (let i = 0; i < 10; i++) wall.flipKanDora();
+    assert(!wall.doraIndicators.some(ind => ind === undefined),
+        'flipKanDora 10回後も doraIndicators に undefined なし');
+    assert(wall.doraIndicators.length <= 5,
+        `doraIndicators は最大5枚（got ${wall.doraIndicators.length}）`);
+}
+
+{
+    // _checkFourKanRyuukyoku: 異なるプレイヤーが計4槓 → _fourKanRyuukyoku = true
+    const g = new Game({ allAI: true });
+    g.startGame();
+    const mk = (num) => {
+        const t = new Tile(SUIT.MAN, num);
+        return new Meld(MELD_TYPE.ANKAN, [t, t, t, t], -1, null);
+    };
+    g.players[0].hand.melds = [mk(1)];
+    g.players[1].hand.melds = [mk(2)];
+    g.players[2].hand.melds = [mk(3)];
+    g.players[3].hand.melds = [mk(4)];
+    g.wall.kanCount = 4;
+    g._checkFourKanRyuukyoku();
+    assert(g._fourKanRyuukyoku === true,
+        '異なるプレイヤーが4槓 → _fourKanRyuukyoku = true');
+}
+
+{
+    // _checkFourKanRyuukyoku: 1人が4槓（四槓子候補）→ _fourKanRyuukyoku = false
+    const g = new Game({ allAI: true });
+    g.startGame();
+    const mk = (num) => {
+        const t = new Tile(SUIT.MAN, num);
+        return new Meld(MELD_TYPE.ANKAN, [t, t, t, t], -1, null);
+    };
+    g.players[0].hand.melds = [mk(1), mk(2), mk(3), mk(4)];
+    g.wall.kanCount = 4;
+    g._checkFourKanRyuukyoku();
+    assert(g._fourKanRyuukyoku === false,
+        '1人が4槓（四槓子候補）→ _fourKanRyuukyoku = false（流局しない）');
+}
+
+{
+    // 四槓散了フラグ設定 + 非完成手 → _processKanDraw 後に流局
+    const g = new Game({ allAI: true });
+    let roundEndResult = null;
+    g.on('roundEnd', ({ result }) => { roundEndResult = result; });
+    g.startGame();
+
+    // 現在プレイヤーを非完成手（テンパイでもない）に設定し四槓散了フラグを立てる
+    const cur = g.players[g.currentIndex];
+    cur.hand.tiles = [
+        new Tile(SUIT.MAN, 1), new Tile(SUIT.MAN, 3), new Tile(SUIT.MAN, 5),
+        new Tile(SUIT.MAN, 7), new Tile(SUIT.MAN, 9), new Tile(SUIT.PIN, 2),
+        new Tile(SUIT.PIN, 4), new Tile(SUIT.PIN, 6), new Tile(SUIT.PIN, 8),
+        new Tile(SUIT.SOU, 1), new Tile(SUIT.SOU, 3), new Tile(SUIT.SOU, 5),
+        new Tile(SUIT.SOU, 7),
+    ];
+    g.state = GAME_STATE.PLAYER_ACTION;
+    g._fourKanRyuukyoku = true;
+    // 嶺上牌を追加してツモ状態を模倣（手牌14枚にする）
+    cur.hand.tiles.push(new Tile(SUIT.SOU, 9));
+    // AI の selectDrawAction を直接呼ぶ代わりに _processKanDraw 後の分岐をテスト
+    // _fourKanRyuukyoku = true かつ isComplete() = false → ryuukyoku が発動するか確認
+    g._processKanDraw && g._processKanDraw();
+    // _processKanDraw 内でさらに rinshan draw が行われるため、
+    // 既にテンパイでない手牌で AI がツモ和了しない → 流局
+    // NOTE: _processKanDraw は drawRinshan を呼ぶため、上で設定した手牌は変わる可能性がある
+    // シンプルな検証: ROUND_END か GAME_END になっていること
+    assert(
+        g.state === GAME_STATE.ROUND_END || g.state === GAME_STATE.GAME_END ||
+        roundEndResult === ROUND_RESULT.RYUUKYOKU,
+        `四槓散了 + 非完成手 → 流局（state=${g.state}, result=${roundEndResult}）`
+    );
+}
+
+{
+    // 四槓散了フラグ: 3槓まではフラグが立たない
+    const g = new Game({ allAI: true });
+    g.startGame();
+    const mk = (num) => {
+        const t = new Tile(SUIT.MAN, num);
+        return new Meld(MELD_TYPE.ANKAN, [t, t, t, t], -1, null);
+    };
+    g.players[0].hand.melds = [mk(1)];
+    g.players[1].hand.melds = [mk(2)];
+    g.players[2].hand.melds = [mk(3)];
+    g.wall.kanCount = 3;
+    g._checkFourKanRyuukyoku();
+    assert(g._fourKanRyuukyoku === false,
+        '3槓では _fourKanRyuukyoku は立たない');
 }
 
 // ========================

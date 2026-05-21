@@ -27,12 +27,14 @@ export default class GameScene extends Phaser.Scene {
     create() {
         this.game_ = new Game();
 
-        this._handGfxList    = [[], [], [], []];
-        this._discardGfxList = [[], [], [], []];
-        this._meldGfxList    = [[], [], [], []];
-        this._actionButtons  = [];
-        this._claimButtons   = [];
-        this._riichiBtn      = null;
+        this._handGfxList       = [[], [], [], []];
+        this._discardGfxList    = [[], [], [], []];
+        this._meldGfxList       = [[], [], [], []];
+        this._doraGfxList       = [];
+        this._riichiStickList   = [];
+        this._actionButtons     = [];
+        this._claimButtons      = [];
+        this._riichiBtn         = null;
 
         this._selectedIdx           = -1;
         this._riichiCandidates      = [];
@@ -99,6 +101,11 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '13px', color: '#cccccc', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
+        // ドラ表示ラベル（静的）
+        this.add.text(529, 325, 'ドラ:', {
+            fontSize: '14px', color: '#ffee88', fontFamily: 'monospace',
+        }).setOrigin(0, 0.5);
+
         this._updateInfoTexts();
     }
 
@@ -116,6 +123,9 @@ export default class GameScene extends Phaser.Scene {
 
         const kyotakuStr = g.kyotaku > 0 ? `  供託${g.kyotaku}本` : '';
         this._wallTxt.setText(`山 ${g.wall.remaining}枚${kyotakuStr}`);
+
+        this._updateDoraDisplay();
+        this._updateRiichiSticks();
     }
 
     // =====================================
@@ -163,6 +173,7 @@ export default class GameScene extends Phaser.Scene {
             ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) &&
              winnerIndex === g.dealerIndex);
 
+        const playerLabels = ['自分', '右', '対面', '左'];
         let lines = [];
 
         if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
@@ -170,7 +181,7 @@ export default class GameScene extends Phaser.Scene {
             const yakuStr  = (yakuResult?.yaku || []).map(y => y.name).join(' / ') || '（役なし）';
             const scoreStr = total != null ? `${han}翻${fu}符  +${total}点` : '';
             lines = [
-                `${label}  Player${winnerIndex}`,
+                `${label}  ${playerLabels[winnerIndex]}`,
                 yakuStr,
                 scoreStr,
             ];
@@ -181,7 +192,7 @@ export default class GameScene extends Phaser.Scene {
             else tenpaiStr = `テンパイ: ${tenpaiIndices.map(i => `P${i}`).join(' ')}`;
             lines = ['流局', tenpaiStr];
         } else if (result === ROUND_RESULT.CHOMBO) {
-            lines = [`チョンボ  Player${winnerIndex}`];
+            lines = [`チョンボ  ${playerLabels[winnerIndex]}`];
         }
 
         lines.push('');
@@ -229,6 +240,9 @@ export default class GameScene extends Phaser.Scene {
             this._clearGfxList(this._discardGfxList[i]);
             this._clearGfxList(this._meldGfxList[i]);
         }
+        this._clearGfxList(this._doraGfxList);
+        this._riichiStickList.forEach(o => o.destroy());
+        this._riichiStickList = [];
         this._selectedIdx = -1;
         this._hintTxt.setText('');
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
@@ -251,6 +265,19 @@ export default class GameScene extends Phaser.Scene {
 
         if (g.state !== GAME_STATE.PLAYER_ACTION || g.currentIndex !== 0) return;
 
+        // 四槓散了: ツモ和了のみ可能
+        if (g._fourKanRyuukyoku) {
+            if (g.canDeclareWin(0)) {
+                this._addButton(900, 662, 'ツモ', 0x884400, () => {
+                    this._clearActionButtons();
+                    g.processWin(0);
+                });
+            }
+            this._hintTxt.setText('四槓散了 — ツモ和了のみ可能（それ以外は流局）');
+            this._setupHandClick(p0);
+            return;
+        }
+
         // ツモ和了ボタン（役チェック込み）
         if (g.canDeclareWin(0)) {
             this._addButton(900, 662, 'ツモ', 0x884400, () => {
@@ -259,16 +286,20 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
+        // 暗槓ボタン（リーチ中も待ちが変わらない場合は可能）
+        const ankanIds = p0.hand.findAnkanIds();
+        const validAnkans = p0.isRiichi
+            ? ankanIds.filter(id => g._canAnkanDuringRiichi(p0, id))
+            : ankanIds;
+        if (validAnkans.length > 0) {
+            this._addButton(1050, 662, '暗槓', 0x334477, () => {
+                this._clearActionButtons();
+                g.processAnkan(0, validAnkans[0]);
+            });
+        }
+
         if (!p0.isRiichi) {
-            // 暗槓ボタン
-            const ankanIds = p0.hand.findAnkanIds();
-            if (ankanIds.length > 0) {
-                this._addButton(1050, 662, '暗槓', 0x334477, () => {
-                    this._clearActionButtons();
-                    g.processAnkan(0, ankanIds[0]);
-                });
-            }
-            // 加槓ボタン
+            // 加槓ボタン（リーチ中は不可）
             const kakanOpts = p0.hand.findKakanOptions();
             if (kakanOpts.length > 0) {
                 this._addButton(1050, 662, '加槓', 0x334477, () => {
@@ -281,7 +312,7 @@ export default class GameScene extends Phaser.Scene {
         }
 
         const hint = p0.isRiichi
-            ? 'リーチ中 — ツモ切りのみ'
+            ? validAnkans.length > 0 ? 'リーチ中 — 暗槓可 / ツモ切りのみ' : 'リーチ中 — ツモ切りのみ'
             : '捨てる牌をクリック（2回目で確定）';
         this._hintTxt.setText(hint);
 
@@ -362,11 +393,15 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _findRiichiDiscards(player) {
-        if (!player.isMenzen || player.isRiichi || player.score < 1000) return [];
+        if (!player.isMenzen || player.isRiichi || player.score < 1000 || player.isFuriten) return [];
         const result = [];
         for (let i = 0; i < player.hand.tiles.length; i++) {
             const removed = player.hand.tiles.splice(i, 1)[0];
-            if (player.hand.isTenpai()) result.push(i);
+            if (player.hand.isTenpai()) {
+                const waits = player.hand.getWaitingTileIds();
+                const furiten = player.discards.some(d => waits.includes(d.id));
+                if (!furiten) result.push(i);
+            }
             player.hand.tiles.splice(i, 0, removed);
         }
         return result;
@@ -459,14 +494,16 @@ export default class GameScene extends Phaser.Scene {
         return `${tile.number}${suitChar}`;
     }
 
-    _drawTile(x, y, tile, { selected = false, back = false, small = false } = {}) {
+    _drawTile(x, y, tile, { selected = false, back = false, small = false, rotated = false } = {}) {
         const w = small ? Math.floor(TW * 0.82) : TW;
         const h = small ? Math.floor(TH * 0.82) : TH;
+        const bw = rotated ? h : w;
+        const bh = rotated ? w : h;
         const bgColor = back
             ? 0x334477
             : selected ? 0xffff88 : this._tileColor(tile);
 
-        const bg = this.add.rectangle(x, y, w - 1, h - 1, bgColor)
+        const bg = this.add.rectangle(x, y, bw - 1, bh - 1, bgColor)
             .setStrokeStyle(1, 0x888888);
 
         let txt = null;
@@ -477,6 +514,7 @@ export default class GameScene extends Phaser.Scene {
                 color: tcolor,
                 fontFamily: 'monospace',
             }).setOrigin(0.5);
+            if (rotated) txt.setAngle(90);
         }
 
         return { bg, txt };
@@ -597,36 +635,122 @@ export default class GameScene extends Phaser.Scene {
     // 副露描画
     // =====================================
 
+    _getMeldRotatedIndex(meld) {
+        if (!meld.claimedTile) return -1; // 暗槓：横向き不要
+        return meld.tiles.findIndex(t => t === meld.claimedTile);
+    }
+
     _renderMelds(playerIndex) {
         this._clearGfxList(this._meldGfxList[playerIndex]);
         const melds = this.game_.players[playerIndex].hand.melds;
         const sw = Math.floor(TW * 0.82);
         const sh = Math.floor(TH * 0.82);
 
-        melds.forEach((meld, mi) => {
-            meld.tiles.forEach((tile, ti) => {
-                let x, y;
-                // 副露配置: 各プレイヤーの手牌エリア外に配置してオーバーラップ防止
-                if (playerIndex === 0) {
-                    // 下: 手牌右端(~885)の右に並べる
-                    x = 920 + mi * ((sw + 2) * 4) + ti * (sw + 2);
-                    y = 660;
-                } else if (playerIndex === 2) {
-                    // 上: 13枚手牌右端(~853)の右に並べる
-                    x = 880 + mi * ((sw + 2) * 4) + ti * (sw + 2);
-                    y = 72;
-                } else if (playerIndex === 1) {
-                    // 右: 手牌(x=1240)の左に列を設けて並べる / y上端から下へ
-                    x = 1190;
-                    y = 100 + mi * ((sh + 2) * 4) + ti * (sh + 2);
-                } else {
-                    // 左: 手牌(x=42)の右に列を設けて並べる / y上端から下へ
-                    x = 90;
-                    y = 100 + mi * ((sh + 2) * 4) + ti * (sh + 2);
-                }
-                const obj = this._drawTile(x, y, tile, { small: true });
-                this._meldGfxList[playerIndex].push(obj);
+        if (playerIndex === 0) {
+            // 下: 手牌右端(~885)の右に横並び
+            let gx = 920;
+            melds.forEach(meld => {
+                const rIdx = this._getMeldRotatedIndex(meld);
+                let tx = gx;
+                meld.tiles.forEach((tile, ti) => {
+                    const rot = ti === rIdx;
+                    const tileW = rot ? sh : sw;
+                    const obj = this._drawTile(tx + tileW / 2, 660, tile, { small: true, rotated: rot });
+                    this._meldGfxList[0].push(obj);
+                    tx += tileW + 2;
+                });
+                gx = tx + 4;
             });
+
+        } else if (playerIndex === 2) {
+            // 上: 13枚手牌右端(~853)の右に横並び
+            let gx = 880;
+            melds.forEach(meld => {
+                const rIdx = this._getMeldRotatedIndex(meld);
+                let tx = gx;
+                meld.tiles.forEach((tile, ti) => {
+                    const rot = ti === rIdx;
+                    const tileW = rot ? sh : sw;
+                    const obj = this._drawTile(tx + tileW / 2, 72, tile, { small: true, rotated: rot });
+                    this._meldGfxList[2].push(obj);
+                    tx += tileW + 2;
+                });
+                gx = tx + 4;
+            });
+
+        } else if (playerIndex === 1) {
+            // 右: 手牌(x=1240)の左に縦並び
+            let gy = 100;
+            melds.forEach(meld => {
+                const rIdx = this._getMeldRotatedIndex(meld);
+                let ty = gy;
+                meld.tiles.forEach((tile, ti) => {
+                    const rot = ti === rIdx;
+                    const tileH = rot ? sw : sh; // 横向き牌は縦方向が短い
+                    const obj = this._drawTile(1190, ty + tileH / 2, tile, { small: true, rotated: rot });
+                    this._meldGfxList[1].push(obj);
+                    ty += tileH + 2;
+                });
+                gy = ty + 4;
+            });
+
+        } else {
+            // 左: 手牌(x=42)の右に縦並び
+            let gy = 100;
+            melds.forEach(meld => {
+                const rIdx = this._getMeldRotatedIndex(meld);
+                let ty = gy;
+                meld.tiles.forEach((tile, ti) => {
+                    const rot = ti === rIdx;
+                    const tileH = rot ? sw : sh;
+                    const obj = this._drawTile(90, ty + tileH / 2, tile, { small: true, rotated: rot });
+                    this._meldGfxList[3].push(obj);
+                    ty += tileH + 2;
+                });
+                gy = ty + 4;
+            });
+        }
+    }
+
+    // =====================================
+    // ドラ表示
+    // =====================================
+
+    _updateDoraDisplay() {
+        this._clearGfxList(this._doraGfxList);
+        const indicators = this.game_.wall?.doraIndicators;
+        if (!indicators || indicators.length === 0) return;
+        const sw = Math.floor(TW * 0.82);
+        indicators.forEach((tile, i) => {
+            const x = 575 + i * (sw + 3);
+            const obj = this._drawTile(x, 325, tile, { small: true });
+            this._doraGfxList.push(obj);
+        });
+    }
+
+    // =====================================
+    // リーチ棒表示
+    // =====================================
+
+    _updateRiichiSticks() {
+        this._riichiStickList.forEach(o => o.destroy());
+        this._riichiStickList = [];
+
+        const g = this.game_;
+        // 各プレイヤーのリーチ棒位置 [x, y, width, height]
+        const configs = [
+            [640, 625, 70, 9],   // P0 下
+            [1130, 360, 9, 70],  // P1 右
+            [640,  100, 70, 9],  // P2 上
+            [150,  360, 9, 70],  // P3 左
+        ];
+
+        g.players.forEach((p, i) => {
+            if (!p.isRiichi) return;
+            const [x, y, w, h] = configs[i];
+            const stick = this.add.rectangle(x, y, w, h, 0xfff5e0)
+                .setStrokeStyle(1, 0x999999);
+            this._riichiStickList.push(stick);
         });
     }
 }

@@ -167,6 +167,71 @@ console.log('\n[流局検知 - Player0もAI扱いでシミュレート]');
 }
 
 // ========================
+// 複数ロン同時宣言バグ回帰テスト
+// ========================
+console.log('\n[複数ロン同時宣言: 後続processRonが次局手牌に触れない]');
+{
+    // 2プレイヤーが同時にロン宣言したとき、先行ロンで nextRound() が呼ばれても
+    // 後続の processRon が新局の手牌を破壊しないことを確認する
+    const g = new Game();
+    g.state = GAME_STATE.CLAIM;
+
+    // 初期スコア設定
+    g.players.forEach(p => { p.score = 25000; });
+
+    // 先行ロン後に nextRound を呼ぶリスナー
+    let roundEndCount = 0;
+    g.on('roundEnd', (ev) => {
+        roundEndCount++;
+        // 1回目のroundEndでnextRoundを同期的に呼ぶ（バグ再現条件）
+        if (roundEndCount === 1 && g.state !== GAME_STATE.GAME_END) {
+            g.nextRound(false);
+        }
+    });
+
+    // テスト: processRon(1, 0) を呼んでラウンドが終了し、
+    // その後 processRon(2, 0) を呼んでも新局の手牌を破壊しない（chomboにならない）
+    // まず正常なロンのための手牌セットアップ
+    const { Tile: T, SUIT: S } = await import('../src/core/Tile.js');
+
+    // discard tile
+    const discardTile = new T(S.MAN, 5);
+    g.lastDiscard = discardTile;
+    g.lastDiscardPlayer = 0;
+
+    // player1に完成手牌 (タンヤオ: 2m3m4m 5m6m7m 2p3p4p 5p6p7p + win=5m)
+    const winTiles1 = [
+        new T(S.MAN,2), new T(S.MAN,3), new T(S.MAN,4),
+        new T(S.MAN,6), new T(S.MAN,7),
+        new T(S.PIN,2), new T(S.PIN,3), new T(S.PIN,4),
+        new T(S.PIN,5), new T(S.PIN,6), new T(S.PIN,7),
+        new T(S.SOU,2), new T(S.SOU,3),
+    ];
+    g.players[1].hand.tiles = winTiles1;
+    g.players[1].hand.melds = [];
+    g.players[1].isMenzen = true;
+
+    // 1回目のRON (成功するはず)
+    g.processRon(1, 0);
+    const stateAfterFirst = g.state;
+
+    // nextRound後に2回目のRONを呼ぶ (バグがあればchomboになる)
+    // バグ修正後は state !== CLAIM なので即return するはず
+    const player2HandBefore = [...g.players[2].hand.tiles];
+    g.processRon(2, 0);
+    const player2HandAfter = [...g.players[2].hand.tiles];
+
+    assert(
+        player2HandBefore.length === player2HandAfter.length,
+        `2回目processRonで次局手牌の枚数が変わらない (${player2HandBefore.length}→${player2HandAfter.length})`
+    );
+    assert(
+        roundEndCount <= 2,
+        `roundEndが多重発火しない (count=${roundEndCount})`
+    );
+}
+
+// ========================
 // 結果
 // ========================
 console.log(`\n結果: ${passed} passed, ${failed} failed`);

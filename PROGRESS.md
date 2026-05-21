@@ -276,6 +276,40 @@
 - [x] tests/test-edge-cases.js 飛びテスト7件追加（TDD・Redフェーズ確認済み）367テスト全通過
 - [x] GameScene.js 局終了パネル「次局へ」ボタン配置バグ修正（パネル外→パネル内）
 - [x] GameScene.js _onNextRound() 全プレイヤー手牌初期描画 + 飛び後描画スキップ対応
+- [x] processRon チョンボバグ修正（複数同時ロン+nextRound同期呼び出しで新局手牌汚染）: ガード条件を `state !== CLAIM` に変更
+- [x] test-game-flow.js 複数ロン同時宣言回帰テスト2件追加（449テスト全通過）
+- [x] 四槓散了ルール完全実装（TDD・Redフェーズ確認済み）
+  - Wall.flipKanDora: kanCount > 4 の場合は push しない（防御ガード）
+  - Game._checkFourKanRyuukyoku: 計4槓かつ同一プレイヤーでない → _fourKanRyuukyoku = true
+  - processMinkan/Ankan/Kakan 後に _checkFourKanRyuukyoku() 呼び出し追加
+  - processAnkan/processKakan: _fourKanRyuukyoku 中は槓を拒否
+  - processDiscard: _fourKanRyuukyoku 中は _processRyuukyoku() に誘導
+  - _processKanDraw: _fourKanRyuukyoku 中はAIツモ和了か即流局
+  - test-edge-cases.js 6件追加（463テスト全通過）
+- [x] GameScene._findRiichiDiscards: フリテン未チェックバグ修正（AILevel3と同等のフリテン確認追加）
+- [x] GameScene._showPlayer0Actions: 四槓散了状態のUI対応（ツモのみ/ヒントテキスト）
+- [x] 1000ゲームシミュレーション2回実施: クラッシュ0・チョンボ0・点数保存則違反0 ✅
+
+## 夜間セッション確認記録（2026-05-17）
+- チョンボバグ（0.26%）根本原因特定・修正完了 ✅
+  - **根本原因**: 複数プレイヤー同時ロン宣言時に、先行 processRon の roundEnd イベント内で
+    nextRound() が同期呼び出しされると _startRound() により state=DRAW にリセットされ、
+    後続 processRon のガード条件 `ROUND_END||GAME_END` をすり抜けて新局手牌に触れる
+  - **修正**: Game.js `processRon` の冒頭ガードを `state !== GAME_STATE.CLAIM` に変更（1行）
+  - **回帰テスト**: test-game-flow.js に複数ロン同時宣言テスト2件追加（449テスト）
+  - **検証**: 1000ゲームシミュレーション → チョンボ 0 (0.00%/7282ラウンド) ✅
+  - GitHub Issue #24 クローズ
+
+## 夕方セッション確認記録（2026-05-17）
+- 全テスト通過確認: 447/447 ✅ (19 + 24 + 52 + 118 + 89 + 5 + 125 + 15)
+- 1000局シミュレーション実施
+  - 総ラウンド7361 / 平均7.36局/ゲーム
+  - ツモ1719 (23.4%) / ロン3514 (47.7%) / 流局2109 (28.7%) / チョンボ19 (0.26%)
+  - クラッシュ0 / 点数保存則違反0
+- 発見バグ: チョンボ発生 0.26% (19/7361ラウンド)
+  - ツモ由来ではない（500ゲームデバッグで確認済み）
+  - RON時に _canRon()→true だが _calculateWin()→null となるケースが存在
+- GitHub Issue #24 作成（週次レポート 2026-05-17）
 
 ## 午後セッション確認記録（2026-05-17）
 - 全テスト通過確認: 469/469 ✅ (19 + 24 + 52 + 134 + 89 + 5 + 125 + 21)
@@ -411,6 +445,137 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 夜間セッション確認記録（2026-05-20）
+- 全テスト通過確認: 463/463 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 137 + 17)
+- **Phase UI-0 全5タスク完了**
+  - ①ドラ指示牌表示: `_buildStaticUI` に「ドラ:」ラベル追加、`_updateDoraDisplay()` で小タイル描画。`_updateInfoTexts()` から毎回更新、次局時にクリア。
+  - ②勝者名修正: `_onRoundEnd` の `Player${winnerIndex}` → `['自分','右','対面','左'][winnerIndex]` に変更。チョンボも同様修正。
+  - ③副露牌横向き: `_drawTile` に `rotated` オプション追加（w/h swap + `txt.setAngle(90)`）。`_getMeldRotatedIndex(meld)` でクレーム牌を `findIndex` で特定し横向き描画。P0/P2（横並び）・P1/P3（縦並び）それぞれタイル幅/高さを動的計算してレイアウト。
+  - ④ウマ精算: `ResultScene` を全面改修。10-20ウマ（1位+20, 2位+10, 3位-10, 4位-20）を計算し精算点 = `(持ち点-30000)/1000 + ウマ` を表示。列ヘッダー・精算式注記も追加。
+  - ⑤リーチ棒視覚表示: `_updateRiichiSticks()` でリーチ中プレイヤーごとにクリーム色の棒型矩形を描画（P0:横、P1/P3:縦、P2:横）。`_updateInfoTexts()` から毎回更新。
+
+## 夜間セッション確認記録（2026-05-19）
+- 全テスト通過確認: 463/463 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 137 + 17)
+- 1000ゲームシミュレーション（2回実施）: クラッシュ0・チョンボ0・点数保存則違反0 ✅
+  - 1回目: 7255ラウンド / ツモ22.9% / ロン48.5% / 流局28.6%
+  - 2回目: 7218ラウンド / ツモ24.5% / ロン48.1% / 流局27.4%
+- バグ修正①（Critical）: 四槓散了ルール未実装によるクラッシュ（発生率0.1%）
+  - **根本原因**: `Wall.flipKanDora()` が10回以上呼ばれると `deadWall[14+]` = undefined を
+    `doraIndicators` に追加。その後 `countDora()` が undefined をデストラクチャリングしてクラッシュ
+  - **根本的原因（上位）**: 4槓散了ルール未実装で局が終了せず10槓以上になるケースが発生
+  - `Wall.flipKanDora()` 修正: `kanCount <= 4` のときのみ push（防御的ガード）
+  - `Game._checkFourKanRyuukyoku()` 追加: 合計4槓かつ同一プレイヤーでない場合に `_fourKanRyuukyoku = true`
+  - `Game._fourKanRyuukyoku` フラグ追加（コンストラクタ・`_startRound` でリセット）
+  - `processMinkan/Ankan/Kakan` 後に `_checkFourKanRyuukyoku()` を呼び出し
+  - `processAnkan/processKakan`: `_fourKanRyuukyoku` 中は槓を拒否（無限槓ループ防止）
+  - `processDiscard`: `_fourKanRyuukyoku` 中は捨て牌の代わりに `_processRyuukyoku()` 呼び出し
+  - `_processKanDraw`: `_fourKanRyuukyoku` 中はAIがツモ和了できなければ即流局
+  - TDD: test-edge-cases.js に6件追加（Redフェーズ確認済み）
+    - `flipKanDora` 10回後も undefined なし
+    - `_checkFourKanRyuukyoku` 異なるプレイヤー4槓 → true
+    - `_checkFourKanRyuukyoku` 1人4槓（四槓子候補）→ false
+    - 四槓散了フラグ + 非完成手 → 流局
+    - 3槓ではフラグが立たない
+- バグ修正②（UX）: `GameScene._findRiichiDiscards` フリテン未チェック
+  - 修正前: `player.isFuriten` を確認せずリーチ候補を計算 → フリテン手にリーチボタンが表示
+  - 修正後: `isFuriten` 確認 + 各候補牌を除いた待ち牌で個別フリテンチェック（AILevel3と同等）
+- 改善: `GameScene._showPlayer0Actions()` 四槓散了状態のUI対応
+  - `g._fourKanRyuukyoku` が true のとき: ツモボタンのみ表示・槓ボタン非表示
+  - ヒントテキスト: "四槓散了 — ツモ和了のみ可能（それ以外は流局）"
+
+## 夜間セッション確認記録（2026-05-18）
+- 全テスト通過確認: 457/457 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 131 + 17)
+- 実装: リーチ後暗槓（Ankan after Riichi）完全実装（TDD）
+  - **背景**: GameScene がリーチ中に暗槓ボタンを完全ブロック・AIもスキップしていた（ルール違反）
+  - **正しいルール**: 待ちが変わらない暗槓はリーチ中でも可能
+  - `Game._canAnkanDuringRiichi(player, tileId)` 追加
+    - リーチ中でない → 常に true（早期 return）
+    - リーチ中: 13枚リーチ手の待ちと暗槓後10枚手の待ちを比較し、同一なら true
+    - 手牌・副露は呼び出し後に完全復元
+  - `Game.processAnkan()` に リーチ中ガード追加
+    - `isRiichi && !_canAnkanDuringRiichi(player, tileId)` → return
+  - `GameScene._showPlayer0Actions()` 修正
+    - `validAnkans` を `isRiichi ? filter(_canAnkan) : all` で計算
+    - リーチ中でも有効暗槓があれば暗槓ボタンを表示
+    - ヒントテキスト: 有効暗槓あり → "リーチ中 — 暗槓可 / ツモ切りのみ"
+  - `AILevel3.selectDrawAction()` 修正
+    - 暗槓チェックをリーチ中も行い、`_canAnkanDuringRiichi` で有効な場合は ankan を返す
+    - 加槓は引き続きリーチ中スキップ
+  - TDD: test-edge-cases.js に6件追加、test-ai.js に2件追加（計+8件）
+    - Redフェーズ確認済み (`_canAnkanDuringRiichi is not a function` エラー)
+
+## UI強化計画（第7〜9週）
+参考: https://github.com/kobalab/Majiang（電脳麻将）
+
+### Phase UI-0: 残タスク完了（第6週 現行ルーティン継続）
+既存ルーティン（平日夜・土日3セッション）で消化する。
+
+| タスク | 対象ファイル | 状態 |
+|--------|------------|------|
+| ①ドラ指示牌表示 | GameScene._buildStaticUI, game_.wall.doraIndicators | ✅ 完了 |
+| ②勝者名修正 | GameScene._onRoundEnd（Player0→自分） | ✅ 完了 |
+| ③副露牌横向き | _renderMelds, _drawTile rotated option | ✅ 完了 |
+| ④ウマ精算 | ResultScene, calcUma helper（10-20ウマ） | ✅ 完了 |
+| ⑤リーチ棒視覚表示 | GameScene._buildStaticUI | ✅ 完了 |
+
+Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り替える。
+
+---
+
+### Phase UI-1: タイルグラフィック刷新（第7週）
+**目的**: テキスト文字 → 絵として認識できる牌へ（Majiangの牌画像相当をPhaser3内で動的生成）
+
+| 工程 | 内容 | 対象ファイル | 状態 |
+|------|------|------------|------|
+| 1-A | タイルテクスチャ動的生成（角丸・枠線・スーツ別彩色） | BootScene.js, _createTileTexture() | ⬜ |
+| 1-B | 赤ドラ視覚区別（5m/5p/5s を赤数字で描画） | BootScene.js | ⬜ |
+| 1-C | 裏牌テクスチャ（斜めハッチングまたは単色） | BootScene.js | ⬜ |
+| 1-D | タイルサイズ拡大（TW=38→44, TH=52→60）と全描画箇所調整 | GameScene.js 定数 | ⬜ |
+
+---
+
+### Phase UI-2: アニメーション実装（第8週）
+**目的**: Phaser3 Tweens で牌の動きに流れを出す（Majiangの600msアニメーション相当）
+
+| 工程 | 内容 | 実装方法 | 状態 |
+|------|------|---------|------|
+| 2-A | ツモアニメーション | 山（右端）→ 手牌末尾へスライドIN 300ms | ⬜ |
+| 2-B | 捨て牌アニメーション | 手牌 → 捨て牌ゾーンへスライド 200ms | ⬜ |
+| 2-C | 副露アニメーション | ポン/チーで牌が集まる 400ms | ⬜ |
+| 2-D | リーチ宣言演出 | 打牌時 90度回転 + リーチ棒出現 300ms | ⬜ |
+| 2-E | 和了演出 | 手牌ハイライト + 役名フラッシュ 500ms | ⬜ |
+
+---
+
+### Phase UI-3: 音響実装（第9週前半）
+**目的**: SE で臨場感を出す（Phaser3 Sound Manager / WebAudio API）
+
+| 工程 | 内容 | 状態 |
+|------|------|------|
+| 3-A | 牌音（ツモ・打牌のカチッ音、WebAudioトーン生成） | ⬜ |
+| 3-B | 副露・リーチ宣言SE | ⬜ |
+| 3-C | 和了SE（ツモ/ロン） | ⬜ |
+| 3-D | BootSceneに音量ON/OFFトグル | ⬜ |
+
+---
+
+### Phase UI-4: UX改善・仕上げ（第9週後半）
+**目的**: プレイしやすさの最終調整
+
+| 工程 | 内容 | 状態 |
+|------|------|------|
+| 4-A | テンパイ時の有効牌ハイライト（薄いオーバーレイ） | ⬜ |
+| 4-B | 点数移動フロートテキスト（+3900点が飛ぶ演出） | ⬜ |
+| 4-C | プレイヤー風牌アイコン（東南西北）の常時表示 | ⬜ |
+| 4-D | スコアバーのリアルタイム更新アニメーション | ⬜ |
+| 4-E | ブラウザ実機テスト・レイアウト最終調整 | ⬜ |
+
+---
+
+## 次回作業内容
+- **現在のフォーカス**: Phase UI-0（残タスク5件）を既存ルーティンで消化
+- Phase UI-0 全完了後: 全4トリガーのプロンプトを Phase UI-1 内容に更新
+- 最終完成目標: Phase UI-4 完了 = ブラウザ実機テスト通過
 ## 次回作業内容（第6週残り・更新済み）
 - GameScene.js の GUI 改良（ブラウザ実機テスト後）
   - タイル画像アセット導入（現在はテキスト描画）
@@ -431,8 +596,8 @@ mahjong-game/
 │   ├── test-yaku.js        ✅ 118テスト（第4週 + 午後セッション統合テスト追加: 四暗刻単騎/大四喜/小三元）
 │   ├── test-score.js       ✅ 89テスト（第5週 + 符計算エッジケース追加: 双碰ロン明刻40符）
 │   ├── test-simulation.js  ✅ 5テスト（第6週・50ゲームシミュレーション）
-│   ├── test-edge-cases.js  ✅ 125テスト（槍槓17件・天和地和20件・飛び7件・流局テンパイ料・_canRon役チェック・トランポリン9件）
-│   └── test-ai.js          ✅ 15テスト（第6週・AILevel3ポン/チー判断・リーチ）
+│   ├── test-edge-cases.js  ✅ 137テスト（槍槓17件・天和地和20件・飛び7件・流局テンパイ料・_canRon役チェック・トランポリン9件・リーチ後暗槓6件・四槓散了6件）
+│   └── test-ai.js          ✅ 17テスト（AILevel3ポン/チー判断・リーチ・リーチ中暗槓2件）
 └── src/
     ├── main.js
     ├── core/

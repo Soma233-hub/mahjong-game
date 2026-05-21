@@ -86,19 +86,26 @@ export class AILevel3 extends AIBase {
             }
         }
 
-        // 2. 暗槓・加槓（リーチ中はスキップ）
-        if (!player.isRiichi) {
-            const ankanIds = player.hand.findAnkanIds();
-            if (ankanIds.length > 0) {
-                return { action: 'ankan', tileId: ankanIds[0] };
+        // 2. 暗槓（リーチ中は待ちが変わらない場合のみ）
+        const ankanIds = player.hand.findAnkanIds();
+        if (ankanIds.length > 0) {
+            const validAnkans = player.isRiichi
+                ? ankanIds.filter(id => game._canAnkanDuringRiichi(player, id))
+                : ankanIds;
+            if (validAnkans.length > 0) {
+                return { action: 'ankan', tileId: validAnkans[0] };
             }
+        }
+
+        // 3a. 加槓（リーチ中は不可）
+        if (!player.isRiichi) {
             const kakanOpts = player.hand.findKakanOptions();
             if (kakanOpts.length > 0) {
                 return { action: 'kakan', meldIndex: kakanOpts[0].meldIndex };
             }
         }
 
-        // 3. リーチ宣言（門前テンパイ・未リーチ・1000点以上）
+        // 3b. リーチ宣言（門前テンパイ・未リーチ・1000点以上）
         if (!player.isRiichi && player.isMenzen && player.score >= 1000) {
             const riichiIdx = this._findRiichiDiscard(player);
             if (riichiIdx !== null) {

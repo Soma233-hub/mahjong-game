@@ -54,6 +54,7 @@ export class Game {
         this._claimsThisRound = false; // ポン/チー/明槓で true → 地和不成立
         this._isChankan       = false; // 加槓に対するロン処理中
         this._pendingKakan    = null;  // 槍槓チェック中の保留加槓情報
+        this._fourKanRyuukyoku = false; // 四槓散了（異なるプレイヤーが計4槓）フラグ
 
         // _processClaims で使う一時コンテキスト
         this._claimContext    = null;
@@ -97,9 +98,10 @@ export class Game {
 
     _startRound() {
         this.wall.init();
-        this._claimsThisRound = false;
-        this._isChankan       = false;
-        this._pendingKakan    = null;
+        this._claimsThisRound  = false;
+        this._isChankan        = false;
+        this._pendingKakan     = null;
+        this._fourKanRyuukyoku = false;
         this.players.forEach(p => {
             p.hand.tiles  = [];
             p.hand.melds  = [];
@@ -145,6 +147,21 @@ export class Game {
         }
     }
 
+    // 合計カン数が4で同一プレイヤーでない場合に四槓散了フラグを設定
+    _checkFourKanRyuukyoku() {
+        const total = this.wall.kanCount;
+        if (total < 4) return;
+        const kansByPlayer = this.players.map(p =>
+            p.hand.melds.filter(m =>
+                m.type === MELD_TYPE.ANKAN ||
+                m.type === MELD_TYPE.MINKAN ||
+                m.type === MELD_TYPE.KAKAN
+            ).length
+        );
+        const oneHasAll = kansByPlayer.some(k => k === total);
+        if (!oneHasAll) this._fourKanRyuukyoku = true;
+    }
+
     _processKanDraw() {
         this._isRinshan = true;
         const player = this.players[this.currentIndex];
@@ -156,6 +173,19 @@ export class Game {
         player.draw(tile);
         this.state = GAME_STATE.PLAYER_ACTION;
         this.emit('kanDraw', { playerIndex: this.currentIndex, tile });
+
+        // 四槓散了: ツモ和了のみ可能・それ以外は流局
+        if (this._fourKanRyuukyoku) {
+            if (!player.isHuman && player.ai) {
+                if (player.hand.isComplete() && this.canDeclareWin(player.index)) {
+                    this.processWin(player.index);
+                } else {
+                    this._processRyuukyoku();
+                }
+            }
+            // 人間プレイヤー: processDiscard 時に流局へ誘導（GameScene 側で対応）
+            return;
+        }
 
         if (!player.isHuman && player.ai) {
             this._processAIAction(player);
@@ -187,6 +217,12 @@ export class Game {
         if (this.state !== GAME_STATE.PLAYER_ACTION &&
             this.state !== GAME_STATE.MELD_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
+
+        // 四槓散了: 人間が捨て牌を選んだ場合は流局に誘導
+        if (this._fourKanRyuukyoku) {
+            this._processRyuukyoku();
+            return;
+        }
 
         const player = this.players[playerIndex];
         const tile = player.discard(tileIndex);
@@ -483,19 +519,59 @@ export class Game {
 
         this.currentIndex = playerIndex;
         this.wall.flipKanDora();
+        this._checkFourKanRyuukyoku();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('minkan', { playerIndex, tile });
         this._schedule(() => this._processKanDraw());
+    }
+
+    // リーチ中の暗槓可否: 暗槓後も待ちが変わらない場合のみ許可
+    // リーチ中でない場合は常に true を返す
+    _canAnkanDuringRiichi(player, tileId) {
+        if (!player.isRiichi) return true;
+
+        const hand = player.hand;
+
+        // 13枚リーチ手の待ち: ツモ牌（末尾）を外した状態で確認
+        const drawnTile = hand.tiles.pop();
+        const beforeWaits = hand.getWaitingTileIds();
+        hand.tiles.push(drawnTile);
+
+        // 暗槓シミュレート: 4枚除去 + ankan meld 追加
+        const savedTiles = [...hand.tiles];
+        const savedMelds = [...hand.melds];
+
+        const removedIndices = [];
+        for (let i = 0; i < hand.tiles.length; i++) {
+            if (hand.tiles[i].id === tileId) removedIndices.push(i);
+            if (removedIndices.length === 4) break;
+        }
+        const ankanTiles = removedIndices.map(i => hand.tiles[i]);
+        removedIndices.sort((a, b) => b - a).forEach(i => hand.tiles.splice(i, 1));
+        hand.melds.push(new Meld(MELD_TYPE.ANKAN, ankanTiles, -1, null));
+
+        const afterWaits = hand.getWaitingTileIds();
+
+        // 状態復元
+        hand.tiles = savedTiles;
+        hand.melds = savedMelds;
+
+        if (beforeWaits.length !== afterWaits.length) return false;
+        return beforeWaits.every(w => afterWaits.includes(w));
     }
 
     // 暗槓実行（自摸牌で槓）
     processAnkan(playerIndex, tileId) {
         if (this.state !== GAME_STATE.PLAYER_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
+        if (this._fourKanRyuukyoku) return; // 四槓散了中は槓不可
 
         const player = this.players[playerIndex];
         const ids = player.hand.findAnkanIds();
         if (!ids.includes(tileId)) return;
+
+        // リーチ中: 待ちが変わる暗槓は禁止
+        if (player.isRiichi && !this._canAnkanDuringRiichi(player, tileId)) return;
 
         const indices = [];
         for (let i = 0; i < player.hand.tiles.length; i++) {
@@ -511,6 +587,7 @@ export class Game {
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
 
         this.wall.flipKanDora();
+        this._checkFourKanRyuukyoku();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('ankan', { playerIndex, tileId });
         this._schedule(() => this._processKanDraw());
@@ -520,6 +597,7 @@ export class Game {
     processKakan(playerIndex, meldIndex) {
         if (this.state !== GAME_STATE.PLAYER_ACTION) return;
         if (playerIndex !== this.currentIndex) return;
+        if (this._fourKanRyuukyoku) return; // 四槓散了中は槓不可
 
         const player = this.players[playerIndex];
         const opts = player.hand.findKakanOptions();
@@ -561,6 +639,7 @@ export class Game {
 
         this.players.forEach(p => { if (p.isRiichi) p.isIppatsu = false; });
         this.wall.flipKanDora();
+        this._checkFourKanRyuukyoku();
         this.state = GAME_STATE.KAN_DRAW;
         this.emit('kakan', { playerIndex, meldIndex, tile: addedTile });
         this._schedule(() => this._processKanDraw());
@@ -626,8 +705,8 @@ export class Game {
 
     // 和了（ロン）
     processRon(winnerIndex, discarderIndex) {
-        // 複数ロン宣言時に最初のロン処理でラウンドが終了している場合はスキップ
-        if (this.state === GAME_STATE.ROUND_END || this.state === GAME_STATE.GAME_END) return;
+        // 複数ロン宣言時: 先行ロン処理後に nextRound() が呼ばれると state が CLAIM 以外になるためスキップ
+        if (this.state !== GAME_STATE.CLAIM) return;
 
         const winner   = this.players[winnerIndex];
         const discarder = this.players[discarderIndex];
