@@ -1,8 +1,8 @@
 import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
 
-// --- タイル描画定数 ---
-const TW = 38;  // タイル幅
-const TH = 52;  // タイル高さ
+// --- タイル描画定数 --- Phase UI-1: TW=44, TH=60 に拡大
+const TW = 44;  // タイル幅
+const TH = 60;  // タイル高さ
 const TG = 3;   // タイル間隔
 
 const SUIT_COLORS = {
@@ -17,7 +17,7 @@ const HONOR_LABELS = ['', '東', '南', '西', '北', '白', '發', '中'];
 const DISCARD_ZONES = [
     { x: 510, y: 435, dir: 'h', cols: 6 },  // Player0 (下)
     { x: 760, y: 295, dir: 'v', cols: 4 },  // Player1 (右)
-    { x: 510, y: 210, dir: 'h', cols: 6 },  // Player2 (上) ← 上から下へ
+    { x: 510, y: 235, dir: 'h', cols: 6 },  // Player2 (上) ← 上から下へ（TH=60拡大に伴いy調整）
     { x: 370, y: 295, dir: 'v', cols: 4 },  // Player3 (左)
 ];
 
@@ -323,14 +323,14 @@ export default class GameScene extends Phaser.Scene {
         const objs = this._handGfxList[0];
         objs.forEach((obj, idx) => {
             if (!obj?.bg) return;
-            const tile = player.hand.tiles[idx];
+            // bg はオーバーレイ Rectangle。setFillStyle(color, alpha) でハイライト制御。
             obj.bg.setInteractive({ useHandCursor: true })
                 .off('pointerover').off('pointerout').off('pointerdown')
                 .on('pointerover', () => {
-                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(0xffffaa);
+                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(0xffff88, 0.4);
                 })
                 .on('pointerout', () => {
-                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(this._tileColor(tile));
+                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(0xffffff, 0);
                 })
                 .on('pointerdown', () => this._onTileClick(idx, player));
         });
@@ -359,7 +359,8 @@ export default class GameScene extends Phaser.Scene {
         } else {
             // 選択変更
             this._selectedIdx = idx;
-            this._renderHand(0);    // ハイライト更新
+            this._renderHand(0);           // ハイライト更新（オブジェクト再生成）
+            this._setupHandClick(p0);      // 再生成されたオブジェクトにイベントを再設定
             this._clearRiichiButton();
 
             // リーチ可能なら「リーチ」ボタン
@@ -484,40 +485,39 @@ export default class GameScene extends Phaser.Scene {
     // タイル描画ヘルパー
     // =====================================
 
-    _tileColor(tile) {
-        return SUIT_COLORS[tile?.suit]?.bg ?? 0xeeeeee;
+    /** Phaser テクスチャキーを返す（BootScene._createTileTexture と一致） */
+    _tileKey(tile) {
+        if (tile.isRed) return `tile_${tile.suit}_${tile.number}r`;
+        return `tile_${tile.suit}_${tile.number}`;
     }
 
-    _tileLabel(tile) {
-        if (tile.suit === 'honor') return HONOR_LABELS[tile.number] ?? '?';
-        const suitChar = { man: '萬', pin: '筒', sou: '索' }[tile.suit];
-        return `${tile.number}${suitChar}`;
-    }
-
+    /**
+     * タイルを描画し { bg, txt } を返す。
+     *   bg  = 透明オーバーレイ Rectangle（インタラクション・選択ハイライト用）
+     *   txt = タイル Image（テクスチャ）
+     *
+     * 呼び出し元は bg.setInteractive() でクリック検出できる。
+     * selected=true のとき bg が黄色半透明になる。
+     */
     _drawTile(x, y, tile, { selected = false, back = false, small = false, rotated = false } = {}) {
-        const w = small ? Math.floor(TW * 0.82) : TW;
-        const h = small ? Math.floor(TH * 0.82) : TH;
-        const bw = rotated ? h : w;
-        const bh = rotated ? w : h;
-        const bgColor = back
-            ? 0x334477
-            : selected ? 0xffff88 : this._tileColor(tile);
+        const scale  = small ? 0.82 : 1.0;
+        const tileW  = TW * scale;
+        const tileH  = TH * scale;
+        const bw     = rotated ? tileH : tileW;  // 実効幅（回転後）
+        const bh     = rotated ? tileW : tileH;  // 実効高（回転後）
 
-        const bg = this.add.rectangle(x, y, bw - 1, bh - 1, bgColor)
-            .setStrokeStyle(1, 0x888888);
+        // --- テクスチャ Image ---
+        const key = back ? 'tile_back' : this._tileKey(tile);
+        const img = this.add.image(x, y, key).setScale(scale);
+        if (rotated) img.setAngle(90);
 
-        let txt = null;
-        if (!back) {
-            const tcolor = tile.isRed ? '#ff4400' : (SUIT_COLORS[tile.suit]?.text ?? '#000');
-            txt = this.add.text(x, y, this._tileLabel(tile), {
-                fontSize: small ? '12px' : '14px',
-                color: tcolor,
-                fontFamily: 'monospace',
-            }).setOrigin(0.5);
-            if (rotated) txt.setAngle(90);
-        }
+        // --- 選択ハイライト用オーバーレイ（透明矩形）---
+        // alpha=0: 不可視だがインタラクティブにできる
+        // alpha=0.4: 黄色の選択ハイライトを表示
+        const ovAlpha = selected ? 0.4 : 0;
+        const overlay = this.add.rectangle(x, y, bw, bh, 0xffff88, ovAlpha);
 
-        return { bg, txt };
+        return { bg: overlay, txt: img };
     }
 
     _clearGfxList(list) {
@@ -574,9 +574,11 @@ export default class GameScene extends Phaser.Scene {
     _renderHandRight(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        // TH=60 フルサイズでは 13 枚 (819px) が画面高 720px を超えるため small=true を使用
+        const sh     = Math.floor(TH * 0.82);  // ≒ 49px
+        const startY = 360 - (n * (sh + TG)) / 2 + sh / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(1240, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(1240, startY + idx * (sh + TG), tile, { back: true, small: true });
             this._handGfxList[1].push(obj);
         });
     }
@@ -584,9 +586,10 @@ export default class GameScene extends Phaser.Scene {
     _renderHandLeft(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        const sh     = Math.floor(TH * 0.82);  // ≒ 49px
+        const startY = 360 - (n * (sh + TG)) / 2 + sh / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(42, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(42, startY + idx * (sh + TG), tile, { back: true, small: true });
             this._handGfxList[3].push(obj);
         });
     }
