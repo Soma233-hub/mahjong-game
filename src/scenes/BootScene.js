@@ -1,6 +1,6 @@
 // タイル描画定数 — GameScene.js と同値を保つこと（1-D で両方変更）
-const TW = 38;  // タイル幅
-const TH = 52;  // タイル高さ
+const TW = 44;  // タイル幅
+const TH = 60;  // タイル高さ
 
 // スーツ別背景色（hex 文字列）
 const SUIT_BG = {
@@ -65,18 +65,18 @@ export default class BootScene extends Phaser.Scene {
 
         // 角丸背景
         ctx.fillStyle = SUIT_BG[suit] ?? '#f0f0f0';
-        this._roundRect(ctx, 1, 1, TW - 2, TH - 2, 4);
+        this._roundRect(ctx, 1, 1, TW - 2, TH - 2, 5);
         ctx.fill();
 
         // 枠線
         ctx.strokeStyle = '#888888';
         ctx.lineWidth = 1;
-        this._roundRect(ctx, 0.5, 0.5, TW - 1, TH - 1, 4);
+        this._roundRect(ctx, 0.5, 0.5, TW - 1, TH - 1, 5);
         ctx.stroke();
 
         // テキスト（赤ドラは '#ff4400'）
         ctx.fillStyle = isRed ? '#ff4400' : (SUIT_TEXT_COLOR[suit] ?? '#333333');
-        ctx.font = 'bold 14px monospace';
+        ctx.font = 'bold 16px monospace';
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         const label = suit === 'honor'
@@ -101,7 +101,7 @@ export default class BootScene extends Phaser.Scene {
         const ctx = canvas.getContext('2d');
 
         // 角丸クリップ
-        this._roundRect(ctx, 1, 1, TW - 2, TH - 2, 4);
+        this._roundRect(ctx, 1, 1, TW - 2, TH - 2, 5);
         ctx.save();
         ctx.clip();
 
@@ -124,7 +124,7 @@ export default class BootScene extends Phaser.Scene {
         // 枠線（クリップ外で描画）
         ctx.strokeStyle = '#556699';
         ctx.lineWidth = 1;
-        this._roundRect(ctx, 0.5, 0.5, TW - 1, TH - 1, 4);
+        this._roundRect(ctx, 0.5, 0.5, TW - 1, TH - 1, 5);
         ctx.stroke();
 
         this.textures.addCanvas(key, canvas);

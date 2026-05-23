@@ -2,15 +2,15 @@ import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
 
 // --- タイル描画定数 ---
 // BootScene.js の同定数と同値を保つこと（Phase 1-D で両方変更）
-const TW = 38;  // タイル幅
-const TH = 52;  // タイル高さ
+const TW = 44;  // タイル幅
+const TH = 60;  // タイル高さ
 const TG = 3;   // タイル間隔
 
 // 捨て牌ゾーン（プレイヤー0=下, 1=右, 2=上, 3=左）
 const DISCARD_ZONES = [
-    { x: 510, y: 435, dir: 'h', cols: 6 },  // Player0 (下)
+    { x: 510, y: 440, dir: 'h', cols: 6 },  // Player0 (下)
     { x: 760, y: 295, dir: 'v', cols: 4 },  // Player1 (右)
-    { x: 510, y: 210, dir: 'h', cols: 6 },  // Player2 (上) ← 上から下へ
+    { x: 510, y: 235, dir: 'h', cols: 6 },  // Player2 (上) ← 上から下へ
     { x: 370, y: 295, dir: 'v', cols: 4 },  // Player3 (左)
 ];
 
@@ -560,9 +560,10 @@ export default class GameScene extends Phaser.Scene {
     _renderHandRight(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        // P1/P3 は縦方向に TW+TG のステップで並べる（TH+TG では13枚が720pxを超えるため）
+        const startY = 360 - (n * (TW + TG)) / 2 + TH / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(1240, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(1240, startY + idx * (TW + TG), tile, { back: true });
             this._handGfxList[1].push(obj);
         });
     }
@@ -570,9 +571,10 @@ export default class GameScene extends Phaser.Scene {
     _renderHandLeft(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        // P1/P3 は縦方向に TW+TG のステップで並べる（TH+TG では13枚が720pxを超えるため）
+        const startY = 360 - (n * (TW + TG)) / 2 + TH / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(42, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(42, startY + idx * (TW + TG), tile, { back: true });
             this._handGfxList[3].push(obj);
         });
     }
@@ -633,8 +635,8 @@ export default class GameScene extends Phaser.Scene {
         const sh = Math.floor(TH * 0.82);
 
         if (playerIndex === 0) {
-            // 下: 手牌右端(~885)の右に横並び
-            let gx = 920;
+            // 下: 手牌右端(TW=44で13枚→~943)の右に横並び
+            let gx = 950;
             melds.forEach(meld => {
                 const rIdx = this._getMeldRotatedIndex(meld);
                 let tx = gx;
@@ -649,8 +651,8 @@ export default class GameScene extends Phaser.Scene {
             });
 
         } else if (playerIndex === 2) {
-            // 上: 13枚手牌右端(~853)の右に横並び
-            let gx = 880;
+            // 上: 13枚手牌右端(TW=44で13枚→~943)の右に横並び
+            let gx = 950;
             melds.forEach(meld => {
                 const rIdx = this._getMeldRotatedIndex(meld);
                 let tx = gx;
