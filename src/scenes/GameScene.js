@@ -2,9 +2,12 @@ import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
 
 // --- タイル描画定数 ---
 // BootScene.js の同定数と同値を保つこと（Phase 1-D で両方変更）
-const TW = 38;  // タイル幅
-const TH = 52;  // タイル高さ
+const TW = 44;  // タイル幅
+const TH = 60;  // タイル高さ
 const TG = 3;   // タイル間隔
+// P1/P3 縦並びステップ: TH > TW のため TH+TG だと14枚で画面オーバーフロー
+// step=TW+1=45 にすると14枚で top=37.5(>36) bottom=682.5(<720) に収まる
+const VERT_STEP = TW + 1;
 
 // 捨て牌ゾーン（プレイヤー0=下, 1=右, 2=上, 3=左）
 const DISCARD_ZONES = [
@@ -560,9 +563,10 @@ export default class GameScene extends Phaser.Scene {
     _renderHandRight(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        // VERT_STEP(=TW+1=45) を使い、14枚でも画面内[37.5, 682.5]に収める
+        const startY = 360 - (n - 1) * VERT_STEP / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(1240, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(1240, startY + idx * VERT_STEP, tile, { back: true });
             this._handGfxList[1].push(obj);
         });
     }
@@ -570,9 +574,10 @@ export default class GameScene extends Phaser.Scene {
     _renderHandLeft(player) {
         const tiles  = player.hand.tiles;
         const n      = tiles.length;
-        const startY = 360 - (n * (TH + TG)) / 2 + TH / 2;
+        // VERT_STEP(=TW+1=45) を使い、14枚でも画面内[37.5, 682.5]に収める
+        const startY = 360 - (n - 1) * VERT_STEP / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(42, startY + idx * (TH + TG), tile, { back: true });
+            const obj = this._drawTile(42, startY + idx * VERT_STEP, tile, { back: true });
             this._handGfxList[3].push(obj);
         });
     }
@@ -649,8 +654,8 @@ export default class GameScene extends Phaser.Scene {
             });
 
         } else if (playerIndex === 2) {
-            // 上: 13枚手牌右端(~853)の右に横並び
-            let gx = 880;
+            // 上: 手牌右端(TW=44・11枚で~900)の右に横並び
+            let gx = 900;
             melds.forEach(meld => {
                 const rIdx = this._getMeldRotatedIndex(meld);
                 let tx = gx;

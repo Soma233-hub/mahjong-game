@@ -1,6 +1,6 @@
 // タイル描画定数 — GameScene.js と同値を保つこと（1-D で両方変更）
-const TW = 38;  // タイル幅
-const TH = 52;  // タイル高さ
+const TW = 44;  // タイル幅
+const TH = 60;  // タイル高さ
 
 // スーツ別背景色（hex 文字列）
 const SUIT_BG = {
@@ -76,7 +76,7 @@ export default class BootScene extends Phaser.Scene {
 
         // テキスト（赤ドラは '#ff4400'）
         ctx.fillStyle = isRed ? '#ff4400' : (SUIT_TEXT_COLOR[suit] ?? '#333333');
-        ctx.font = 'bold 14px monospace';
+        ctx.font = 'bold 16px monospace';
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         const label = suit === 'honor'
