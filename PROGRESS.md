@@ -445,6 +445,19 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 午前セッション確認記録（2026-05-23）
+- 全テスト通過確認: 485/485 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 23)
+- **Phase UI-1 / 1-A+1-B+1-C 実装完了（タイルテクスチャ動的生成）**
+  - 【1-A】BootScene._createTileTexture(suit, number, isRed)
+    - HTML5 Canvas で全牌（数牌 27 + 字牌 7 = 34 種）を動的生成
+    - 角丸矩形（radius=4）+ スーツ別背景色 + スーツ別文字色 + 数字/漢字テキスト
+    - テクスチャキー: `tile_{suit}_{number}`
+    - BootScene.create() で一括生成 → Phaser3 テクスチャマネージャにキャッシュ
+    - GameScene._drawTile: this.add.rectangle+text → this.add.image に変更
+    - _setupHandClick: setFillStyle → setTint/clearTint に変更
+  - 【1-B】赤ドラテクスチャ（tile_{suit}_5_r）— 文字色 '#ff4400'
+  - 【1-C】裏牌テクスチャ（tile_back）— 暗青背景 + 斜めハッチング
+
 ## 夜間セッション確認記録（2026-05-20）
 - 全テスト通過確認: 463/463 ✅ (19 + 26 + 52 + 118 + 89 + 5 + 137 + 17)
 - **Phase UI-0 全5タスク完了**
@@ -527,9 +540,9 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 
 | 工程 | 内容 | 対象ファイル | 状態 |
 |------|------|------------|------|
-| 1-A | タイルテクスチャ動的生成（角丸・枠線・スーツ別彩色） | BootScene.js, _createTileTexture() | ⬜ |
-| 1-B | 赤ドラ視覚区別（5m/5p/5s を赤数字で描画） | BootScene.js | ⬜ |
-| 1-C | 裏牌テクスチャ（斜めハッチングまたは単色） | BootScene.js | ⬜ |
+| 1-A | タイルテクスチャ動的生成（角丸・枠線・スーツ別彩色） | BootScene.js, _createTileTexture() | ✅ 完了 |
+| 1-B | 赤ドラ視覚区別（5m/5p/5s を赤数字で描画） | BootScene.js | ✅ 完了 |
+| 1-C | 裏牌テクスチャ（斜めハッチングまたは単色） | BootScene.js | ✅ 完了 |
 | 1-D | タイルサイズ拡大（TW=38→44, TH=52→60）と全描画箇所調整 | GameScene.js 定数 | ⬜ |
 
 ---
