@@ -1,17 +1,10 @@
 import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
 
 // --- タイル描画定数 ---
+// BootScene.js の同定数と同値を保つこと（Phase 1-D で両方変更）
 const TW = 38;  // タイル幅
 const TH = 52;  // タイル高さ
 const TG = 3;   // タイル間隔
-
-const SUIT_COLORS = {
-    man:   { bg: 0xffe0e0, text: '#cc0000' },
-    pin:   { bg: 0xe0e8ff, text: '#0033cc' },
-    sou:   { bg: 0xe0ffe0, text: '#006600' },
-    honor: { bg: 0xf0f0f0, text: '#333333' },
-};
-const HONOR_LABELS = ['', '東', '南', '西', '北', '白', '發', '中'];
 
 // 捨て牌ゾーン（プレイヤー0=下, 1=右, 2=上, 3=左）
 const DISCARD_ZONES = [
@@ -323,14 +316,14 @@ export default class GameScene extends Phaser.Scene {
         const objs = this._handGfxList[0];
         objs.forEach((obj, idx) => {
             if (!obj?.bg) return;
-            const tile = player.hand.tiles[idx];
             obj.bg.setInteractive({ useHandCursor: true })
                 .off('pointerover').off('pointerout').off('pointerdown')
                 .on('pointerover', () => {
-                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(0xffffaa);
+                    // 未選択牌のみホバー tint（選択中は _drawTile で付与済み）
+                    if (this._selectedIdx !== idx) obj.bg.setTint(0xffffaa);
                 })
                 .on('pointerout', () => {
-                    if (this._selectedIdx !== idx) obj.bg.setFillStyle(this._tileColor(tile));
+                    if (this._selectedIdx !== idx) obj.bg.clearTint();
                 })
                 .on('pointerdown', () => this._onTileClick(idx, player));
         });
@@ -484,40 +477,33 @@ export default class GameScene extends Phaser.Scene {
     // タイル描画ヘルパー
     // =====================================
 
-    _tileColor(tile) {
-        return SUIT_COLORS[tile?.suit]?.bg ?? 0xeeeeee;
-    }
-
-    _tileLabel(tile) {
-        if (tile.suit === 'honor') return HONOR_LABELS[tile.number] ?? '?';
-        const suitChar = { man: '萬', pin: '筒', sou: '索' }[tile.suit];
-        return `${tile.number}${suitChar}`;
-    }
-
+    /**
+     * BootScene で生成したテクスチャを使って牌を Image で描画する。
+     * @returns {{ bg: Phaser.GameObjects.Image, txt: null }}
+     *   bg … Image（クリック判定・tint はこちらで操作）
+     *   txt … 常に null（_clearGfxList との互換のため保持）
+     */
     _drawTile(x, y, tile, { selected = false, back = false, small = false, rotated = false } = {}) {
         const w = small ? Math.floor(TW * 0.82) : TW;
         const h = small ? Math.floor(TH * 0.82) : TH;
-        const bw = rotated ? h : w;
-        const bh = rotated ? w : h;
-        const bgColor = back
-            ? 0x334477
-            : selected ? 0xffff88 : this._tileColor(tile);
 
-        const bg = this.add.rectangle(x, y, bw - 1, bh - 1, bgColor)
-            .setStrokeStyle(1, 0x888888);
-
-        let txt = null;
-        if (!back) {
-            const tcolor = tile.isRed ? '#ff4400' : (SUIT_COLORS[tile.suit]?.text ?? '#000');
-            txt = this.add.text(x, y, this._tileLabel(tile), {
-                fontSize: small ? '12px' : '14px',
-                color: tcolor,
-                fontFamily: 'monospace',
-            }).setOrigin(0.5);
-            if (rotated) txt.setAngle(90);
+        // テクスチャキー決定
+        let texKey;
+        if (back) {
+            texKey = 'tile_back';
+        } else if (tile?.isRed) {
+            texKey = `tile_${tile.suit}_${tile.number}_r`;
+        } else {
+            texKey = `tile_${tile.suit}_${tile.number}`;
         }
 
-        return { bg, txt };
+        const img = this.add.image(x, y, texKey);
+        // rotated 時: setDisplaySize は元サイズのまま → setAngle(90) で視覚上 w/h が入れ替わる
+        img.setDisplaySize(w - 1, h - 1);
+        if (selected) img.setTint(0xffff44);   // 選択中: 明黄色 tint
+        if (rotated)  img.setAngle(90);
+
+        return { bg: img, txt: null };
     }
 
     _clearGfxList(list) {
