@@ -127,11 +127,14 @@ export default class GameScene extends Phaser.Scene {
 
     _onDraw({ playerIndex }) {
         this._clearActionButtons();
-        this._renderHand(playerIndex);
         this._updateInfoTexts();
 
         if (playerIndex === 0) {
-            this._showPlayer0Actions();
+            // 人間プレイヤー: ツモアニメーション付き描画
+            this._animateDrawP0();
+        } else {
+            // AI プレイヤー: 即時描画（アニメ中に次イベントが重複するのを避けるため）
+            this._renderHand(playerIndex);
         }
     }
 
@@ -471,6 +474,68 @@ export default class GameScene extends Phaser.Scene {
     _clearClaimButtons() {
         this._claimButtons.forEach(o => o.destroy());
         this._claimButtons = [];
+    }
+
+    // =====================================
+    // ツモアニメーション (2-A)
+    // =====================================
+
+    /**
+     * P0（人間）専用ツモアニメーション。
+     * ツモ牌をテーブル中央右付近から手牌末尾へ 300ms でスライドイン。
+     * - ツモ牌以外は最終 n 枚レイアウト座標に即時描画（完了時にシフトなし）
+     * - アニメ完了後に _renderHand(0) + _showPlayer0Actions() を呼ぶ
+     */
+    _animateDrawP0() {
+        this._selectedIdx = -1; // ツモ時に前の選択状態をリセット
+
+        const p     = this.game_.players[0];
+        const tiles  = p.hand.tiles;
+        const n      = tiles.length;
+
+        // エッジケース（通常は n >= 2 のはず）
+        if (n <= 1) {
+            this._renderHand(0);
+            this._showPlayer0Actions();
+            return;
+        }
+
+        this._clearGfxList(this._handGfxList[0]);
+
+        const drawnTile = tiles[n - 1];
+        const totalW    = n * (TW + TG);
+        const startX    = 640 - totalW / 2 + TW / 2;
+
+        // ツモ牌以外を「n 枚レイアウト」の最終座標に先に描画
+        for (let i = 0; i < n - 1; i++) {
+            const obj = this._drawTile(startX + i * (TW + TG), 660, tiles[i]);
+            this._handGfxList[0].push(obj);
+        }
+
+        // ツモ牌の最終座標（持ち上げ -8 込み）
+        const endX = startX + (n - 1) * (TW + TG);
+        const endY = 660 - 8;
+
+        // テクスチャキー
+        const texKey = drawnTile.isRed
+            ? `tile_${drawnTile.suit}_${drawnTile.number}_r`
+            : `tile_${drawnTile.suit}_${drawnTile.number}`;
+
+        // 山の位置（テーブル中央右寄り）からスタート
+        const img = this.add.image(760, 395, texKey).setDisplaySize(TW - 1, TH - 1);
+
+        this.tweens.add({
+            targets : img,
+            x       : endX,
+            y       : endY,
+            duration: 300,
+            ease    : 'Power2.easeOut',
+            onComplete: () => {
+                img.destroy();
+                this._renderHand(0);          // 選択ハイライトも含め全牌を正式描画
+                this._showPlayer0Actions();   // 操作ボタン表示（_selectedIdx=-1 はここでも再設定）
+            },
+        });
     }
 
     // =====================================
