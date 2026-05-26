@@ -445,6 +445,15 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 夜間セッション確認記録（2026-05-26）
+- 全テスト通過確認: 485/485 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 23)
+- **Phase UI-2 全5工程 実装完了**
+  - 【2-A】ツモアニメーション: `_animateDraw(playerIndex)` — 山位置(wallOrigins)からPhaser3 Tween 250ms `Cubic.easeOut`スライドイン。P0=表牌テクスチャ / AI=裏牌テクスチャ
+  - 【2-B】捨て牌アニメーション: `_getTileScreenPos()`ヘルパー追加。`_onTileClick`・`_showRiichiButton`でprocessDiscard前にタイル座標を`_lastP0DiscardPos`に保存。200ms `Cubic.easeOut` + displayWidth/Height縮小tween
+  - 【2-C】副露アニメーション: `_renderMelds`末尾で最後の副露グループのみscale(0.01)→`Back.easeOut` 250ms ポップイン + 牌ごとに40ms cascadedelay
+  - 【2-D】リーチ宣言演出: `_renderDiscards`にriichiDiscardIdx追加（`player.riichiDiscardCount`位置の牌をrotated:trueで横向き表示）。`_updateRiichiSticks`に`_lastRiichiMask`差分検出追加 → 新規stickをscale(0)→`Back.easeOut` 250msポップ
+  - 【2-E】和了演出: `_onRoundEnd` TSUMO/RON時に勝者手牌全タイルをalpha:0.15 yoyo:true repeat:2 150ms フラッシュ
+
 ## 夕方セッション確認記録（2026-05-23）
 - 全テスト通過確認: 485/485 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 23)
 - **Phase UI-1 / 1-D 実装完了（タイルサイズ拡大・全描画箇所調整）**
@@ -563,11 +572,11 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 
 | 工程 | 内容 | 実装方法 | 状態 |
 |------|------|---------|------|
-| 2-A | ツモアニメーション | 山（右端）→ 手牌末尾へスライドIN 300ms | ⬜ |
-| 2-B | 捨て牌アニメーション | 手牌 → 捨て牌ゾーンへスライド 200ms | ⬜ |
-| 2-C | 副露アニメーション | ポン/チーで牌が集まる 400ms | ⬜ |
-| 2-D | リーチ宣言演出 | 打牌時 90度回転 + リーチ棒出現 300ms | ⬜ |
-| 2-E | 和了演出 | 手牌ハイライト + 役名フラッシュ 500ms | ⬜ |
+| 2-A | ツモアニメーション | 山（右端）→ 手牌末尾へスライドIN 300ms | ✅ 完了 |
+| 2-B | 捨て牌アニメーション | 手牌 → 捨て牌ゾーンへスライド 200ms | ✅ 完了 |
+| 2-C | 副露アニメーション | ポン/チーで牌が集まる 400ms | ✅ 完了 |
+| 2-D | リーチ宣言演出 | 打牌時 90度回転 + リーチ棒出現 300ms | ✅ 完了 |
+| 2-E | 和了演出 | 手牌ハイライト + 役名フラッシュ 500ms | ✅ 完了 |
 
 ---
 
