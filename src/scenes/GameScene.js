@@ -32,6 +32,8 @@ export default class GameScene extends Phaser.Scene {
         this._selectedIdx           = -1;
         this._riichiCandidates      = [];
         this._lastDealerContinues   = false;
+        this._lastP0DiscardPos      = null;  // 2-B: 打牌アニメーション用
+        this._lastRiichiMask        = '';    // 2-D: リーチ棒変化検出用
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -130,15 +132,59 @@ export default class GameScene extends Phaser.Scene {
         this._renderHand(playerIndex);
         this._updateInfoTexts();
 
+        // 2-A: ツモアニメーション
+        this._animateDraw(playerIndex);
+
         if (playerIndex === 0) {
             this._showPlayer0Actions();
         }
     }
 
     _onDiscard({ playerIndex }) {
+        // P0 の打牌: 選択状態を解除してからアニメーション
+        if (playerIndex === 0) this._selectedIdx = -1;
         this._renderHand(playerIndex);
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
+
+        // 2-B: 打牌アニメーション（P0 のみ: 保存位置 → 捨て牌ゾーン）
+        if (playerIndex === 0 && this._lastP0DiscardPos) {
+            const savedPos = this._lastP0DiscardPos;
+            this._lastP0DiscardPos = null;
+
+            const discardList = this._discardGfxList[0];
+            const lastDiscard = discardList[discardList.length - 1];
+            if (lastDiscard?.bg?.active) {
+                const endX = lastDiscard.bg.x;
+                const endY = lastDiscard.bg.y;
+                lastDiscard.bg.setVisible(false);
+
+                const discardedTile = this.game_.players[0].discards.slice(-1)[0];
+                const texKey = discardedTile?.isRed
+                    ? `tile_${discardedTile.suit}_${discardedTile.number}_r`
+                    : `tile_${discardedTile.suit}_${discardedTile.number}`;
+                const sw = Math.floor(TW * 0.82);
+                const sh = Math.floor(TH * 0.82);
+
+                const flyImg = this.add.image(savedPos.x, savedPos.y, texKey)
+                    .setDisplaySize(TW - 1, TH - 1)
+                    .setDepth(50);
+
+                this.tweens.add({
+                    targets: flyImg,
+                    x: endX,
+                    y: endY,
+                    displayWidth:  sw - 1,
+                    displayHeight: sh - 1,
+                    duration: 200,
+                    ease: 'Cubic.easeOut',
+                    onComplete: () => {
+                        flyImg.destroy();
+                        if (lastDiscard?.bg?.active) lastDiscard.bg.setVisible(true);
+                    },
+                });
+            }
+        }
     }
 
     _onMeld({ playerIndex }) {
@@ -191,6 +237,22 @@ export default class GameScene extends Phaser.Scene {
         lines.push('');
         lines.push(g.players.map(p => `P${p.index}: ${p.score}`).join('  '));
 
+        // 2-E: 和了演出 — 勝者手牌を3回フラッシュ
+        if ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) &&
+            winnerIndex != null) {
+            this._handGfxList[winnerIndex].forEach(obj => {
+                if (!obj?.bg?.active) return;
+                this.tweens.add({
+                    targets: obj.bg,
+                    alpha: 0.15,
+                    yoyo: true,
+                    repeat: 2,
+                    duration: 150,
+                    ease: 'Sine.easeInOut',
+                });
+            });
+        }
+
         // パネル (center=360, height=280 → y=[220,500])
         const panelBg = this.add.rectangle(640, 360, 620, 280, 0x000000, 0.88)
             .setStrokeStyle(2, 0xaaaaaa).setDepth(30);
@@ -237,6 +299,7 @@ export default class GameScene extends Phaser.Scene {
         this._riichiStickList.forEach(o => o.destroy());
         this._riichiStickList = [];
         this._selectedIdx = -1;
+        this._lastRiichiMask = '';  // 2-D: 次局でリーチ棒アニメを再有効化
         this._hintTxt.setText('');
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
         g.nextRound(this._lastDealerContinues);
@@ -347,6 +410,8 @@ export default class GameScene extends Phaser.Scene {
             // 同じ牌を再クリック → 打牌実行
             this._clearActionButtons();
             this._hintTxt.setText('');
+            // 2-B: 打牌アニメーション用にタイル座標を保存（processDiscard より先に取得）
+            this._lastP0DiscardPos = this._getTileScreenPos(0, idx);
             g.processDiscard(0, idx);
             this._selectedIdx = -1;
         } else {
@@ -373,6 +438,8 @@ export default class GameScene extends Phaser.Scene {
             .on('pointerdown', () => {
                 this._clearActionButtons();
                 this._hintTxt.setText('');
+                // 2-B: リーチ打牌もアニメーション対象（processRiichi内でdiscardが発火）
+                this._lastP0DiscardPos = this._getTileScreenPos(0, tileIdx);
                 this.game_.processRiichi(0, tileIdx);
             });
         this._riichiBtn = [bg, txt];
@@ -514,6 +581,68 @@ export default class GameScene extends Phaser.Scene {
         list.length = 0;
     }
 
+    /**
+     * 指定プレイヤーの手牌グラフィックからスクリーン座標を取得する（2-B 用）
+     */
+    _getTileScreenPos(playerIndex, tileIdx) {
+        const obj = this._handGfxList[playerIndex]?.[tileIdx];
+        if (!obj?.bg) return null;
+        return { x: obj.bg.x, y: obj.bg.y };
+    }
+
+    /**
+     * 2-A: ツモアニメーション
+     * 手牌末尾の牌を一時的に非表示にし、山の位置からスライドINする
+     */
+    _animateDraw(playerIndex) {
+        const handList = this._handGfxList[playerIndex];
+        if (handList.length === 0) return;
+        const lastObj = handList[handList.length - 1];
+        if (!lastObj?.bg?.active) return;
+
+        const endX = lastObj.bg.x;
+        const endY = lastObj.bg.y;
+
+        // プレイヤーごとの山開始位置（内テーブル上の概算座標）
+        const wallOrigins = [
+            { x: 720, y: 415 },  // P0（下）: 手前壁の右端
+            { x: 820, y: 285 },  // P1（右）: 右壁の上端
+            { x: 560, y: 310 },  // P2（上）: 奥壁の左端
+            { x: 460, y: 435 },  // P3（左）: 左壁の下端
+        ];
+        const start = wallOrigins[playerIndex];
+
+        // テクスチャキー（P0=表牌、AI=裏牌）
+        let texKey;
+        if (playerIndex === 0) {
+            const tiles = this.game_.players[0].hand.tiles;
+            const tile  = tiles[tiles.length - 1];
+            texKey = tile?.isRed
+                ? `tile_${tile.suit}_${tile.number}_r`
+                : `tile_${tile.suit}_${tile.number}`;
+        } else {
+            texKey = 'tile_back';
+        }
+
+        // 実タイルを一時的に非表示にしてフライング牌を生成
+        lastObj.bg.setVisible(false);
+        const flyImg = this.add.image(start.x, start.y, texKey)
+            .setDisplaySize(TW - 1, TH - 1)
+            .setDepth(50);
+
+        this.tweens.add({
+            targets: flyImg,
+            x: endX,
+            y: endY,
+            duration: 250,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+                flyImg.destroy();
+                if (lastObj?.bg?.active) lastObj.bg.setVisible(true);
+            },
+        });
+    }
+
     // =====================================
     // 手牌描画
     // =====================================
@@ -585,11 +714,17 @@ export default class GameScene extends Phaser.Scene {
 
     _renderDiscards(playerIndex) {
         this._clearGfxList(this._discardGfxList[playerIndex]);
-        const discards = this.game_.players[playerIndex].discards;
+        const player   = this.game_.players[playerIndex];
+        const discards = player.discards;
         const zone     = DISCARD_ZONES[playerIndex];
         const sw = Math.floor(TW * 0.82);
         const sh = Math.floor(TH * 0.82);
         const gx = 2;
+
+        // 2-D: リーチ宣言牌インデックス（riichiDiscardCount が宣言時の捨て牌数 → その位置が宣言牌）
+        const riichiDiscardIdx = (player.isRiichi && player.riichiDiscardCount >= 0)
+            ? player.riichiDiscardCount
+            : -1;
 
         discards.forEach((tile, idx) => {
             const col = idx % zone.cols;
@@ -614,7 +749,8 @@ export default class GameScene extends Phaser.Scene {
                 y = zone.y + col * (sh + gx);
             }
 
-            const obj = this._drawTile(x, y, tile, { small: true });
+            const isRiichiDiscard = idx === riichiDiscardIdx;
+            const obj = this._drawTile(x, y, tile, { small: true, rotated: isRiichiDiscard });
             this._discardGfxList[playerIndex].push(obj);
         });
     }
@@ -633,6 +769,8 @@ export default class GameScene extends Phaser.Scene {
         const melds = this.game_.players[playerIndex].hand.melds;
         const sw = Math.floor(TW * 0.82);
         const sh = Math.floor(TH * 0.82);
+        // 2-C: 副露アニメーション — 最後の副露牌数を記録（描画後にポップイン）
+        const lastMeldSize = melds.length > 0 ? melds[melds.length - 1].tiles.length : 0;
 
         if (playerIndex === 0) {
             // 下: 手牌右端(TW=44で13枚→~943)の右に横並び
@@ -698,6 +836,26 @@ export default class GameScene extends Phaser.Scene {
                 gy = ty + 4;
             });
         }
+
+        // 2-C: 最後の副露グループのみポップイン（scale 0 → 1）
+        if (melds.length > 0 && lastMeldSize > 0) {
+            const allObjs = this._meldGfxList[playerIndex];
+            const newObjs = allObjs.slice(allObjs.length - lastMeldSize);
+            newObjs.forEach((obj, i) => {
+                if (!obj?.bg?.active) return;
+                const origSX = obj.bg.scaleX;
+                const origSY = obj.bg.scaleY;
+                obj.bg.setScale(0.01);
+                this.tweens.add({
+                    targets: obj.bg,
+                    scaleX: origSX,
+                    scaleY: origSY,
+                    duration: 250,
+                    delay: i * 40,
+                    ease: 'Back.easeOut',
+                });
+            });
+        }
     }
 
     // =====================================
@@ -721,10 +879,16 @@ export default class GameScene extends Phaser.Scene {
     // =====================================
 
     _updateRiichiSticks() {
+        const g = this.game_;
+
+        // 2-D: マスクが変化していなければ再描画しない（無駄な再アニメーションを防止）
+        const newMask = g.players.map(p => p.isRiichi ? '1' : '0').join('');
+        if (this._lastRiichiMask === newMask) return;
+        this._lastRiichiMask = newMask;
+
         this._riichiStickList.forEach(o => o.destroy());
         this._riichiStickList = [];
 
-        const g = this.game_;
         // 各プレイヤーのリーチ棒位置 [x, y, width, height]
         const configs = [
             [640, 625, 70, 9],   // P0 下
@@ -736,8 +900,17 @@ export default class GameScene extends Phaser.Scene {
         g.players.forEach((p, i) => {
             if (!p.isRiichi) return;
             const [x, y, w, h] = configs[i];
+            // scale(0) → scale(1) のポップイン（Back.easeOut でバウンス感）
             const stick = this.add.rectangle(x, y, w, h, 0xfff5e0)
-                .setStrokeStyle(1, 0x999999);
+                .setStrokeStyle(1, 0x999999)
+                .setScale(0);
+            this.tweens.add({
+                targets: stick,
+                scaleX: 1,
+                scaleY: 1,
+                duration: 250,
+                ease: 'Back.easeOut',
+            });
             this._riichiStickList.push(stick);
         });
     }
