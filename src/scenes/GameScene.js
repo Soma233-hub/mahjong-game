@@ -32,6 +32,8 @@ export default class GameScene extends Phaser.Scene {
         this._selectedIdx           = -1;
         this._riichiCandidates      = [];
         this._lastDealerContinues   = false;
+        this._discardStartPos       = null;   // 捨て牌アニメ開始座標 (2-B)
+        this._riichiPlayerSet       = new Set(); // リーチ棒アニメ済みプレイヤー (2-D)
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -127,18 +129,97 @@ export default class GameScene extends Phaser.Scene {
 
     _onDraw({ playerIndex }) {
         this._clearActionButtons();
-        this._renderHand(playerIndex);
         this._updateInfoTexts();
 
-        if (playerIndex === 0) {
-            this._showPlayer0Actions();
+        if (playerIndex !== 0) {
+            // AI プレイヤー: アニメなしで即描画
+            this._renderHand(playerIndex);
+            return;
         }
+
+        // ===== 2-A: P0 ツモアニメーション（山中央 → 手牌末尾 300ms） =====
+        const p      = this.game_.players[0];
+        const tiles  = p.hand.tiles;
+        const drawn  = tiles[tiles.length - 1];
+        const n      = tiles.length;
+
+        // 手牌末尾の最終座標（ツモ牌は -8px 持ち上げる）
+        const totalW = n * (TW + TG);
+        const baseX  = 640 - totalW / 2 + TW / 2;
+        const endX   = baseX + (n - 1) * (TW + TG);
+        const endY   = 660 - 8;
+
+        // アニメ中: ツモ牌を除いた手牌を描画
+        const removed = tiles.pop();
+        this._renderHand(0);
+        tiles.push(removed);
+
+        // テクスチャキー（赤ドラ対応）
+        const texKey = drawn.isRed
+            ? `tile_${drawn.suit}_${drawn.number}_r`
+            : `tile_${drawn.suit}_${drawn.number}`;
+
+        // アニメ牌: テーブル中央から手牌末尾へスライド
+        const animImg = this.add.image(640, 390, texKey)
+            .setDisplaySize(TW - 1, TH - 1)
+            .setDepth(5);
+
+        this.tweens.add({
+            targets:  animImg,
+            x:        endX,
+            y:        endY,
+            duration: 300,
+            ease:     'Sine.easeOut',
+            onComplete: () => {
+                animImg.destroy();
+                this._renderHand(0);
+                this._showPlayer0Actions();
+            },
+        });
     }
 
     _onDiscard({ playerIndex }) {
         this._renderHand(playerIndex);
-        this._renderDiscards(playerIndex);
         this._updateInfoTexts();
+
+        // ===== 2-B: P0 捨て牌アニメーション（手牌 → 捨て牌ゾーン 200ms） =====
+        if (playerIndex === 0 && this._discardStartPos) {
+            const discards  = this.game_.players[0].discards;
+            const tileIdx   = discards.length - 1;
+            const endPos    = this._getDiscardPos(0, tileIdx);
+            const lastTile  = discards[tileIdx];
+
+            // 最後の捨て牌を除いて描画（アニメ牌がその役を担う）
+            this._renderDiscards(0, tileIdx);
+
+            const texKey = lastTile.isRed
+                ? `tile_${lastTile.suit}_${lastTile.number}_r`
+                : `tile_${lastTile.suit}_${lastTile.number}`;
+            const sw = Math.floor(TW * 0.82);
+            const sh = Math.floor(TH * 0.82);
+
+            const startPos = { ...this._discardStartPos };
+            this._discardStartPos = null;
+
+            const animImg = this.add.image(startPos.x, startPos.y, texKey)
+                .setDisplaySize(sw - 1, sh - 1)
+                .setDepth(5);
+
+            this.tweens.add({
+                targets:  animImg,
+                x:        endPos.x,
+                y:        endPos.y,
+                duration: 200,
+                ease:     'Sine.easeOut',
+                onComplete: () => {
+                    animImg.destroy();
+                    this._renderDiscards(0); // 最後の捨て牌を含めて再描画
+                },
+            });
+        } else {
+            this._renderDiscards(playerIndex);
+            this._discardStartPos = null;
+        }
     }
 
     _onMeld({ playerIndex }) {
@@ -191,18 +272,35 @@ export default class GameScene extends Phaser.Scene {
         lines.push('');
         lines.push(g.players.map(p => `P${p.index}: ${p.score}`).join('  '));
 
+        // ===== 2-E: 勝者手牌ハイライト（P0 が勝者の場合 500ms） =====
+        if ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) && winnerIndex === 0) {
+            this._handGfxList[0].forEach(obj => { if (obj?.bg) obj.bg.setTint(0xffdd44); });
+            this.time.delayedCall(500, () => {
+                this._handGfxList[0].forEach(obj => { if (obj?.bg) obj.bg.clearTint(); });
+            });
+        }
+
+        // ===== 2-E: パネルフェードイン（alpha 0→1, 300ms） =====
         // パネル (center=360, height=280 → y=[220,500])
         const panelBg = this.add.rectangle(640, 360, 620, 280, 0x000000, 0.88)
-            .setStrokeStyle(2, 0xaaaaaa).setDepth(30);
+            .setStrokeStyle(2, 0xaaaaaa).setDepth(30).setAlpha(0);
         const panelTxt = this.add.text(640, 335, lines.join('\n'), {
             fontSize: '20px', color: '#ffffff', fontFamily: 'monospace', align: 'center',
-        }).setOrigin(0.5).setDepth(31);
+        }).setOrigin(0.5).setDepth(31).setAlpha(0);
 
         // 次局ボタン (パネル内 y=468)
-        const nextBg  = this.add.rectangle(640, 468, 160, 40, 0x334466).setDepth(32);
+        const nextBg  = this.add.rectangle(640, 468, 160, 40, 0x334466).setDepth(32).setAlpha(0);
         const nextTxt = this.add.text(640, 468, '次局へ ▶', {
             fontSize: '17px', color: '#ffffff', fontFamily: 'monospace',
-        }).setOrigin(0.5).setDepth(33);
+        }).setOrigin(0.5).setDepth(33).setAlpha(0);
+
+        // フェードイン tween
+        this.tweens.add({
+            targets:  [panelBg, panelTxt, nextBg, nextTxt],
+            alpha:    1,
+            duration: 300,
+            ease:     'Sine.easeOut',
+        });
 
         nextBg.setInteractive({ useHandCursor: true })
             .on('pointerover', () => nextBg.setFillStyle(0x4455aa))
@@ -237,6 +335,8 @@ export default class GameScene extends Phaser.Scene {
         this._riichiStickList.forEach(o => o.destroy());
         this._riichiStickList = [];
         this._selectedIdx = -1;
+        this._discardStartPos = null;
+        this._riichiPlayerSet.clear(); // リーチ棒アニメ状態をリセット (2-D)
         this._hintTxt.setText('');
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
         g.nextRound(this._lastDealerContinues);
@@ -345,6 +445,9 @@ export default class GameScene extends Phaser.Scene {
 
         if (this._selectedIdx === idx) {
             // 同じ牌を再クリック → 打牌実行
+            // 捨て牌アニメ開始座標を保存 (2-B)
+            const hitObj = this._handGfxList[0][idx];
+            if (hitObj?.bg) this._discardStartPos = { x: hitObj.bg.x, y: hitObj.bg.y };
             this._clearActionButtons();
             this._hintTxt.setText('');
             g.processDiscard(0, idx);
@@ -371,6 +474,9 @@ export default class GameScene extends Phaser.Scene {
             .on('pointerover', () => bg.setFillStyle(0xcc3300))
             .on('pointerout',  () => bg.setFillStyle(0xaa2200))
             .on('pointerdown', () => {
+                // リーチ牌の捨て牌アニメ開始座標を保存 (2-B)
+                const riichiObj = this._handGfxList[0][tileIdx];
+                if (riichiObj?.bg) this._discardStartPos = { x: riichiObj.bg.x, y: riichiObj.bg.y };
                 this._clearActionButtons();
                 this._hintTxt.setText('');
                 this.game_.processRiichi(0, tileIdx);
@@ -583,17 +689,27 @@ export default class GameScene extends Phaser.Scene {
     // 捨て牌描画
     // =====================================
 
-    _renderDiscards(playerIndex) {
+    /**
+     * 捨て牌を描画する。
+     * @param {number} playerIndex
+     * @param {number} [maxCount]  省略時は全枚数。2-B アニメ中に最後の牌を除くために使用。
+     */
+    _renderDiscards(playerIndex, maxCount) {
         this._clearGfxList(this._discardGfxList[playerIndex]);
-        const discards = this.game_.players[playerIndex].discards;
-        const zone     = DISCARD_ZONES[playerIndex];
+        const player   = this.game_.players[playerIndex];
+        const discards  = player.discards;
+        const zone      = DISCARD_ZONES[playerIndex];
         const sw = Math.floor(TW * 0.82);
         const sh = Math.floor(TH * 0.82);
         const gx = 2;
+        const limit = (maxCount !== undefined)
+            ? Math.min(maxCount, discards.length)
+            : discards.length;
 
-        discards.forEach((tile, idx) => {
-            const col = idx % zone.cols;
-            const row = Math.floor(idx / zone.cols);
+        for (let idx = 0; idx < limit; idx++) {
+            const tile = discards[idx];
+            const col  = idx % zone.cols;
+            const row  = Math.floor(idx / zone.cols);
             let x, y;
 
             if (playerIndex === 0) {
@@ -614,9 +730,39 @@ export default class GameScene extends Phaser.Scene {
                 y = zone.y + col * (sh + gx);
             }
 
-            const obj = this._drawTile(x, y, tile, { small: true });
+            // ===== 2-D: リーチ宣言牌は横向き（90度回転）表示 =====
+            // declareRiichi は discard の前に呼ばれるため
+            // player.riichiDiscardCount === リーチ前捨て牌数 = リーチ宣言牌のindex
+            const isRiichiTile = player.isRiichi && (idx === player.riichiDiscardCount);
+            const obj = this._drawTile(x, y, tile, { small: true, rotated: isRiichiTile });
             this._discardGfxList[playerIndex].push(obj);
-        });
+        }
+    }
+
+    /**
+     * 捨て牌ゾーン内の指定インデックスの牌の中心座標を返す。
+     * _renderDiscards のレイアウト計算と同一ロジック。(2-B用ヘルパー)
+     * @param {number} playerIndex
+     * @param {number} tileIdx
+     * @returns {{ x: number, y: number }}
+     */
+    _getDiscardPos(playerIndex, tileIdx) {
+        const zone = DISCARD_ZONES[playerIndex];
+        const sw = Math.floor(TW * 0.82);
+        const sh = Math.floor(TH * 0.82);
+        const gx = 2;
+        const col = tileIdx % zone.cols;
+        const row = Math.floor(tileIdx / zone.cols);
+
+        if (playerIndex === 0) {
+            return { x: zone.x + col * (sw + gx), y: zone.y + row * (sh + gx) };
+        } else if (playerIndex === 2) {
+            return { x: zone.x + col * (sw + gx), y: zone.y - row * (sh + gx) };
+        } else if (playerIndex === 1) {
+            return { x: zone.x + row * (sw + gx), y: zone.y + col * (sh + gx) };
+        } else {
+            return { x: zone.x - row * (sw + gx), y: zone.y + col * (sh + gx) };
+        }
     }
 
     // =====================================
@@ -738,7 +884,25 @@ export default class GameScene extends Phaser.Scene {
             const [x, y, w, h] = configs[i];
             const stick = this.add.rectangle(x, y, w, h, 0xfff5e0)
                 .setStrokeStyle(1, 0x999999);
+
+            // ===== 2-D: 新規リーチ棒はフェードイン（alpha 0→1, 300ms） =====
+            if (!this._riichiPlayerSet.has(i)) {
+                this._riichiPlayerSet.add(i);
+                stick.setAlpha(0);
+                this.tweens.add({
+                    targets:  stick,
+                    alpha:    1,
+                    duration: 300,
+                    ease:     'Sine.easeIn',
+                });
+            }
+
             this._riichiStickList.push(stick);
+        });
+
+        // リーチ解除されたプレイヤーを Set から削除
+        this._riichiPlayerSet.forEach(i => {
+            if (!g.players[i]?.isRiichi) this._riichiPlayerSet.delete(i);
         });
     }
 }
