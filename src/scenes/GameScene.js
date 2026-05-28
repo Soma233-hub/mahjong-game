@@ -32,6 +32,7 @@ export default class GameScene extends Phaser.Scene {
         this._selectedIdx           = -1;
         this._riichiCandidates      = [];
         this._lastDealerContinues   = false;
+        this._prevRiichiSet         = new Set();
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -128,6 +129,7 @@ export default class GameScene extends Phaser.Scene {
     _onDraw({ playerIndex }) {
         this._clearActionButtons();
         this._renderHand(playerIndex);
+        this._animateDraw(playerIndex);
         this._updateInfoTexts();
 
         if (playerIndex === 0) {
@@ -138,6 +140,7 @@ export default class GameScene extends Phaser.Scene {
     _onDiscard({ playerIndex }) {
         this._renderHand(playerIndex);
         this._renderDiscards(playerIndex);
+        this._animateDiscard(playerIndex);
         this._updateInfoTexts();
     }
 
@@ -145,6 +148,7 @@ export default class GameScene extends Phaser.Scene {
         this._renderHand(playerIndex);
         this._renderMelds(playerIndex);
         this._renderDiscards(playerIndex);
+        this._animateMeld(playerIndex);
         this._updateInfoTexts();
     }
 
@@ -158,6 +162,11 @@ export default class GameScene extends Phaser.Scene {
         this._clearClaimButtons();
 
         const g = this.game_;
+
+        // 和了演出: 勝者手牌を金色フラッシュ（2-E）
+        if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
+            this._animateWin(winnerIndex);
+        }
 
         // 連荘判定: 親和了 or 流局 or チョンボは連荘
         this._lastDealerContinues =
@@ -236,6 +245,7 @@ export default class GameScene extends Phaser.Scene {
         this._clearGfxList(this._doraGfxList);
         this._riichiStickList.forEach(o => o.destroy());
         this._riichiStickList = [];
+        this._prevRiichiSet = new Set();
         this._selectedIdx = -1;
         this._hintTxt.setText('');
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
@@ -717,15 +727,80 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // =====================================
+    // アニメーション（Phase UI-2）
+    // =====================================
+
+    // 2-A: ツモ — 最後に引いた牌を壁付近からスライドIN
+    _animateDraw(playerIndex) {
+        const list = this._handGfxList[playerIndex];
+        if (list.length === 0) return;
+        const img = list[list.length - 1]?.bg;
+        if (!img?.active) return;
+        const tx = img.x, ty = img.y;
+        // 各プレイヤーの「壁」起点（内テーブル境界付近）
+        const SRC = [[1010, 495], [980, 570], [270, 225], [300, 150]];
+        const [sx, sy] = SRC[playerIndex];
+        img.setPosition(sx, sy);
+        this.tweens.add({ targets: img, x: tx, y: ty, duration: 250, ease: 'Sine.easeOut' });
+    }
+
+    // 2-B: 捨て牌 — 最後の捨て牌を手牌中央から捨て牌ゾーンへスライド
+    _animateDiscard(playerIndex) {
+        const list = this._discardGfxList[playerIndex];
+        if (list.length === 0) return;
+        const img = list[list.length - 1]?.bg;
+        if (!img?.active) return;
+        const tx = img.x, ty = img.y;
+        const SRC = [[640, 650], [1200, 360], [640, 82], [82, 360]];
+        const [sx, sy] = SRC[playerIndex];
+        img.setPosition(sx, sy);
+        this.tweens.add({ targets: img, x: tx, y: ty, duration: 180, ease: 'Sine.easeOut' });
+    }
+
+    // 2-C: 副露 — 最後の副露牌群をテーブル中央からスライドIN（Back ease）
+    _animateMeld(playerIndex) {
+        const melds = this.game_.players[playerIndex].hand.melds;
+        if (melds.length === 0) return;
+        const tileCount = melds[melds.length - 1].tiles.length;
+        const list = this._meldGfxList[playerIndex];
+        const startIdx = list.length - tileCount;
+        if (startIdx < 0) return;
+        const SRC = [[640, 500], [950, 430], [640, 220], [330, 430]];
+        const [sx, sy] = SRC[playerIndex];
+        for (let i = startIdx; i < list.length; i++) {
+            const img = list[i]?.bg;
+            if (!img?.active) continue;
+            const tx = img.x, ty = img.y;
+            img.setPosition(sx, sy);
+            this.tweens.add({
+                targets: img, x: tx, y: ty,
+                duration: 300, ease: 'Back.easeOut',
+                delay: (i - startIdx) * 40,
+            });
+        }
+    }
+
+    // 2-E: 和了 — 勝者手牌を金色tintで2回点滅
+    _animateWin(winnerIndex) {
+        this._handGfxList[winnerIndex].forEach(obj => {
+            const img = obj?.bg;
+            if (!img?.active) return;
+            img.setTint(0xffdd00);
+            this.tweens.add({
+                targets: img,
+                alpha: { from: 1, to: 0.5 },
+                yoyo: true, repeat: 1,
+                duration: 220, ease: 'Sine.easeInOut',
+            });
+        });
+    }
+
+    // =====================================
     // リーチ棒表示
     // =====================================
 
     _updateRiichiSticks() {
-        this._riichiStickList.forEach(o => o.destroy());
-        this._riichiStickList = [];
-
         const g = this.game_;
-        // 各プレイヤーのリーチ棒位置 [x, y, width, height]
         const configs = [
             [640, 625, 70, 9],   // P0 下
             [1130, 360, 9, 70],  // P1 右
@@ -733,12 +808,34 @@ export default class GameScene extends Phaser.Scene {
             [150,  360, 9, 70],  // P3 左
         ];
 
+        this._riichiStickList.forEach(o => o.destroy());
+        this._riichiStickList = [];
+
+        const newRiichiSet = new Set(
+            g.players.filter(p => p.isRiichi).map(p => p.index)
+        );
+
         g.players.forEach((p, i) => {
             if (!p.isRiichi) return;
             const [x, y, w, h] = configs[i];
             const stick = this.add.rectangle(x, y, w, h, 0xfff5e0)
                 .setStrokeStyle(1, 0x999999);
             this._riichiStickList.push(stick);
+
+            // 新規リーチのみ出現アニメーション（2-D）
+            if (!this._prevRiichiSet.has(i)) {
+                stick.setAlpha(0).setScale(0.2);
+                this.tweens.add({
+                    targets: stick,
+                    alpha: 1,
+                    scaleX: 1,
+                    scaleY: 1,
+                    duration: 300,
+                    ease: 'Back.easeOut',
+                });
+            }
         });
+
+        this._prevRiichiSet = newRiichiSet;
     }
 }
