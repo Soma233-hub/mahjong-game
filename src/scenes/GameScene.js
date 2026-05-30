@@ -130,6 +130,7 @@ export default class GameScene extends Phaser.Scene {
         this._clearActionButtons();
         this._renderHand(playerIndex);
         this._updateInfoTexts();
+        this._playSfxDraw();
 
         if (playerIndex === 0) {
             this._animateDrawP0();
@@ -141,6 +142,7 @@ export default class GameScene extends Phaser.Scene {
         this._renderHand(playerIndex);
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
+        this._playSfxDiscard();
 
         if (playerIndex === 0 && this._lastDiscardPos) {
             this._animateDiscardP0();
@@ -154,6 +156,7 @@ export default class GameScene extends Phaser.Scene {
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
         this._animateMeld(playerIndex);
+        this._playSfxMeld();
     }
 
     _onClaimNeeded({ playerIndex, options }) {
@@ -399,6 +402,7 @@ export default class GameScene extends Phaser.Scene {
                 this._hintTxt.setText('');
                 const obj = this._handGfxList[0][tileIdx];
                 this._lastDiscardPos = obj?.bg ? { x: obj.bg.x, y: obj.bg.y } : null;
+                this._playSfxRiichi();
                 this.game_.processRiichi(0, tileIdx);
             });
         this._riichiBtn = [bg, txt];
@@ -616,6 +620,8 @@ export default class GameScene extends Phaser.Scene {
 
     // 2-E: 和了演出（役名フラッシュ + P0手牌ハイライト、計500ms → パネル表示）
     _animateWin(winnerIndex, yakuResult, result, onComplete) {
+        this._playSfxWin();
+
         if (winnerIndex === 0) {
             this._handGfxList[0].forEach(obj => {
                 if (obj?.bg) obj.bg.setTint(0xffdd44);
@@ -860,6 +866,51 @@ export default class GameScene extends Phaser.Scene {
             const obj = this._drawTile(x, 325, tile, { small: true });
             this._doraGfxList.push(obj);
         });
+    }
+
+    // =====================================
+    // 音響 (Phase UI-3)
+    // =====================================
+
+    // 指定周波数・長さのトーンを WebAudio API でスケジュール再生する低レベルヘルパー。
+    // startOffset(秒) で遅延可能。freqEnd を指定すると線形スイープになる。
+    _scheduleNote(freq, duration, startOffset = 0, type = 'square', vol = 0.15, freqEnd = null) {
+        const ctx = this.registry.get('audioCtx');
+        if (!ctx || !this.registry.get('soundEnabled')) return;
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.type = type;
+        const t = ctx.currentTime + startOffset;
+        osc.frequency.setValueAtTime(freq, t);
+        if (freqEnd != null) osc.frequency.linearRampToValueAtTime(freqEnd, t + duration);
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        osc.start(t);
+        osc.stop(t + duration);
+    }
+
+    // 3-A: ツモ音（短いクリック音）
+    _playSfxDraw()    { this._scheduleNote(880, 0.06); }
+
+    // 3-A: 打牌音（やや低いクリック音）
+    _playSfxDiscard() { this._scheduleNote(660, 0.08); }
+
+    // 3-B: 副露SE（2音で「ポン」感）
+    _playSfxMeld() {
+        this._scheduleNote(700, 0.10);
+        this._scheduleNote(500, 0.10, 0.10);
+    }
+
+    // 3-B: リーチSE（上昇スイープ）
+    _playSfxRiichi() { this._scheduleNote(440, 0.30, 0, 'triangle', 0.18, 880); }
+
+    // 3-C: 和了SE（上昇アルペジオ C5-E5-G5-C6）
+    _playSfxWin() {
+        [523, 659, 784, 1047].forEach((f, i) =>
+            this._scheduleNote(f, 0.30, i * 0.10, 'triangle', 0.20));
     }
 
     // =====================================

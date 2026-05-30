@@ -26,7 +26,66 @@ export default class BootScene extends Phaser.Scene {
 
     create() {
         this._generateAllTileTextures();
-        this.scene.start('GameScene');
+        this._initAudio();
+        this._buildStartScreen();
+    }
+
+    // ============================================================
+    // 音響初期化 【3-A/3-D】
+    // ============================================================
+
+    _initAudio() {
+        try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            this.registry.set('audioCtx', Ctx ? new Ctx() : null);
+        } catch (_) {
+            this.registry.set('audioCtx', null);
+        }
+        this.registry.set('soundEnabled', true);
+    }
+
+    // ============================================================
+    // スタート画面（音量トグル + ゲーム開始ボタン） 【3-D】
+    // ============================================================
+
+    _buildStartScreen() {
+        this.add.rectangle(640, 360, 1280, 720, 0x1a3a15);
+        this.add.text(640, 200, '麻雀ゲーム', {
+            fontSize: '64px', color: '#ffee44', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        // 音量トグルボタン
+        const soundBg = this.add.rectangle(640, 360, 180, 48, 0x334466)
+            .setInteractive({ useHandCursor: true })
+            .setStrokeStyle(1, 0x667799);
+        const soundTxt = this.add.text(640, 360, '音量: ON', {
+            fontSize: '22px', color: '#ffffff', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        soundBg
+            .on('pointerover', () => soundBg.setFillStyle(0x445577))
+            .on('pointerout',  () => {
+                const en = this.registry.get('soundEnabled');
+                soundBg.setFillStyle(en ? 0x334466 : 0x553322);
+            })
+            .on('pointerdown', () => {
+                const en = !this.registry.get('soundEnabled');
+                this.registry.set('soundEnabled', en);
+                soundTxt.setText(en ? '音量: ON' : '音量: OFF');
+                soundBg.setFillStyle(en ? 0x334466 : 0x553322);
+            });
+
+        // ゲーム開始ボタン
+        const startBg = this.add.rectangle(640, 470, 220, 52, 0x225522)
+            .setInteractive({ useHandCursor: true })
+            .setStrokeStyle(1, 0x44aa44);
+        this.add.text(640, 470, 'ゲーム開始 ▶', {
+            fontSize: '24px', color: '#ffffff', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+        startBg
+            .on('pointerover', () => startBg.setFillStyle(0x337733))
+            .on('pointerout',  () => startBg.setFillStyle(0x225522))
+            .on('pointerdown', () => this.scene.start('GameScene'));
     }
 
     // ============================================================
