@@ -445,6 +445,16 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 土曜夕方セッション確認記録（2026-05-30）
+- 全テスト通過確認: 485/485 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 23)
+- **Phase UI-3 全4タスク完了**
+  - 【3-A】ツモ・打牌音: `_playSfxDraw()`/`_playSfxDiscard()` — square波 880Hz/660Hz クリック音
+  - 【3-B】副露SE: `_playSfxMeld()` — 700→500Hz 2音、リーチSE: `_playSfxRiichi()` — 440→880Hz 上昇スイープ
+  - 【3-C】和了SE: `_playSfxWin()` — C5-E5-G5-C6 上昇アルペジオ（triangle波 4音）
+  - 【3-D】BootScene スタート画面追加: `_initAudio()`（WebAudio AudioContext 初期化）+ `_buildStartScreen()`（音量ON/OFFトグル・ゲーム開始ボタン）
+  - `_scheduleNote(freq, duration, startOffset, type, vol, freqEnd)` ヘルパー追加（WebAudio API 直接制御）
+  - AudioContext は Phaser3 registry 経由で全 Scene 間共有
+
 ## 土曜午後セッション確認記録（2026-05-30）
 - 全テスト通過確認: 485/485 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 23)
 - **Phase UI-2 / 2-C・2-E 実装完了（アニメーション）**
@@ -605,10 +615,10 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 
 | 工程 | 内容 | 状態 |
 |------|------|------|
-| 3-A | 牌音（ツモ・打牌のカチッ音、WebAudioトーン生成） | ⬜ |
-| 3-B | 副露・リーチ宣言SE | ⬜ |
-| 3-C | 和了SE（ツモ/ロン） | ⬜ |
-| 3-D | BootSceneに音量ON/OFFトグル | ⬜ |
+| 3-A | 牌音（ツモ・打牌のカチッ音、WebAudioトーン生成） | ✅ 完了 |
+| 3-B | 副露・リーチ宣言SE | ✅ 完了 |
+| 3-C | 和了SE（ツモ/ロン） | ✅ 完了 |
+| 3-D | BootSceneに音量ON/OFFトグル | ✅ 完了 |
 
 ---
 
