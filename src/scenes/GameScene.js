@@ -153,6 +153,7 @@ export default class GameScene extends Phaser.Scene {
         this._renderMelds(playerIndex);
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
+        this._animateMeld(playerIndex);
     }
 
     _onClaimNeeded({ playerIndex, options }) {
@@ -180,6 +181,8 @@ export default class GameScene extends Phaser.Scene {
             const label    = result === ROUND_RESULT.TSUMO ? 'ツモ！' : 'ロン！';
             const yakuStr  = (yakuResult?.yaku || []).map(y => y.name).join(' / ') || '（役なし）';
             const scoreStr = total != null ? `${han}翻${fu}符  +${total}点` : '';
+            // 2-E: 和了演出（500ms）
+            this._animateWin(winnerIndex, `${label} ${playerLabels[winnerIndex]}\n${yakuStr}`);
             lines = [
                 `${label}  ${playerLabels[winnerIndex]}`,
                 yakuStr,
@@ -564,6 +567,79 @@ export default class GameScene extends Phaser.Scene {
             y: finalY,
             duration: 200,
             ease: 'Power2.Out',
+        });
+    }
+
+    // 2-C: 副露アニメーション（最新副露の牌がスライドIN 400ms）
+    _animateMeld(playerIndex) {
+        const melds = this.game_.players[playerIndex].hand.melds;
+        if (melds.length === 0) return;
+        const tileCount = melds[melds.length - 1].tiles.length;
+        const gfxList   = this._meldGfxList[playerIndex];
+        const meldObjs  = gfxList.slice(gfxList.length - tileCount);
+
+        // P0/P2 は横並び（右側から出現）、P1/P3 は縦並び（上から出現）
+        const isHorizontal = playerIndex === 0 || playerIndex === 2;
+
+        meldObjs.forEach(obj => {
+            if (!obj?.bg) return;
+            const finalX = obj.bg.x;
+            const finalY = obj.bg.y;
+            obj.bg.setAlpha(0);
+            if (isHorizontal) {
+                obj.bg.setX(finalX + 120);
+            } else {
+                obj.bg.setY(finalY - 80);
+            }
+            this.tweens.add({
+                targets: obj.bg,
+                x: finalX,
+                y: finalY,
+                alpha: 1,
+                duration: 400,
+                ease: 'Power2.Out',
+            });
+        });
+    }
+
+    // 2-E: 和了演出（手牌ハイライト + 役名フラッシュ 500ms）
+    _animateWin(playerIndex, label) {
+        // 手牌の牌をフラッシュ
+        const handObjs = this._handGfxList[playerIndex];
+        handObjs.forEach(obj => {
+            if (!obj?.bg) return;
+            this.tweens.add({
+                targets: obj.bg,
+                alpha: 0.3,
+                yoyo: true,
+                repeat: 1,
+                duration: 250,
+                ease: 'Linear',
+                onComplete: () => { if (obj.bg?.active) obj.bg.setAlpha(1); },
+            });
+        });
+
+        // 役名フラッシュテキスト（中央に500ms表示→フェードアウト）
+        const flashTxt = this.add.text(640, 360, label, {
+            fontSize: '28px', color: '#ffee00', fontFamily: 'monospace',
+            align: 'center', stroke: '#000000', strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(25).setAlpha(0);
+
+        this.tweens.add({
+            targets: flashTxt,
+            alpha: 1,
+            duration: 150,
+            ease: 'Linear',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: flashTxt,
+                    alpha: 0,
+                    duration: 300,
+                    delay: 500,
+                    ease: 'Linear',
+                    onComplete: () => flashTxt.destroy(),
+                });
+            },
         });
     }
 
