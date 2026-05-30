@@ -153,6 +153,7 @@ export default class GameScene extends Phaser.Scene {
         this._renderMelds(playerIndex);
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
+        this._animateMeld(playerIndex);
     }
 
     _onClaimNeeded({ playerIndex, options }) {
@@ -173,6 +174,18 @@ export default class GameScene extends Phaser.Scene {
             ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) &&
              winnerIndex === g.dealerIndex);
 
+        const panelData = { result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices };
+
+        if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
+            this._animateWin(winnerIndex, yakuResult, result,
+                () => this._showRoundEndPanel(panelData));
+        } else {
+            this._showRoundEndPanel(panelData);
+        }
+    }
+
+    _showRoundEndPanel({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
+        const g = this.game_;
         const playerLabels = ['自分', '右', '対面', '左'];
         let lines = [];
 
@@ -564,6 +577,81 @@ export default class GameScene extends Phaser.Scene {
             y: finalY,
             duration: 200,
             ease: 'Power2.Out',
+        });
+    }
+
+    // 2-C: 副露アニメーション（新規副露牌が手牌方向からスライドIN 400ms）
+    _animateMeld(playerIndex) {
+        const melds = this.game_.players[playerIndex].hand.melds;
+        if (melds.length === 0) return;
+        const lastMeld = melds[melds.length - 1];
+        const newCount = lastMeld.tiles.length;
+        const gfxList  = this._meldGfxList[playerIndex];
+        const newObjs  = gfxList.slice(gfxList.length - newCount);
+
+        const origins = [
+            { x: 640, y: 660 },
+            { x: 1240, y: 360 },
+            { x: 640, y: 72 },
+            { x: 42, y: 360 },
+        ];
+        const o = origins[playerIndex];
+
+        newObjs.forEach((obj, i) => {
+            if (!obj?.bg) return;
+            const fx = obj.bg.x;
+            const fy = obj.bg.y;
+            obj.bg.setPosition(o.x, o.y).setAlpha(0);
+            this.tweens.add({
+                targets: obj.bg,
+                x: fx,
+                y: fy,
+                alpha: 1,
+                duration: 400,
+                ease: 'Power2.Out',
+                delay: i * 40,
+            });
+        });
+    }
+
+    // 2-E: 和了演出（役名フラッシュ + P0手牌ハイライト、計500ms → パネル表示）
+    _animateWin(winnerIndex, yakuResult, result, onComplete) {
+        if (winnerIndex === 0) {
+            this._handGfxList[0].forEach(obj => {
+                if (obj?.bg) obj.bg.setTint(0xffdd44);
+            });
+        }
+
+        const label    = result === ROUND_RESULT.TSUMO ? 'ツモ！' : 'ロン！';
+        const yakuLine = (yakuResult?.yaku || []).slice(0, 2).map(y => y.name).join('  ');
+        const flashTxt = this.add.text(640, 360, yakuLine ? `${label}\n${yakuLine}` : label, {
+            fontSize: '52px', color: '#ffdd00', fontFamily: 'monospace',
+            stroke: '#000000', strokeThickness: 5, align: 'center',
+        }).setOrigin(0.5).setDepth(50).setAlpha(0).setScale(0.6);
+
+        this.tweens.add({
+            targets: flashTxt,
+            alpha: 1,
+            scale: 1,
+            duration: 200,
+            ease: 'Back.Out',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: flashTxt,
+                    alpha: 0,
+                    delay: 100,
+                    duration: 200,
+                    onComplete: () => {
+                        flashTxt.destroy();
+                        if (winnerIndex === 0) {
+                            this._handGfxList[0].forEach(obj => {
+                                if (obj?.bg) obj.bg.clearTint();
+                            });
+                        }
+                        onComplete();
+                    },
+                });
+            },
         });
     }
 
