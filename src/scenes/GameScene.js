@@ -33,6 +33,8 @@ export default class GameScene extends Phaser.Scene {
         this._riichiCandidates      = [];
         this._lastDealerContinues   = false;
         this._lastDiscardPos        = null;   // 2-B: 捨て牌アニメ用
+        this._tenpaiCandidates      = [];     // 4-A: テンパイ候補ハイライト用
+        this._prevScores            = Array(4).fill(25000); // 4-B: 点数フロート用
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -110,9 +112,11 @@ export default class GameScene extends Phaser.Scene {
         const roundNum  = (g.round % 4) + 1;
         this._roundTxt.setText(`${roundWind}${roundNum}局 ${g.honba}本場`);
 
+        const windChars = ['東', '南', '西', '北'];
         g.players.forEach((p, i) => {
+            const wIdx = (i - g.dealerIndex + 4) % 4;
             const riichiMark = p.isRiichi ? '★' : '';
-            this._scoreTxts[i].setText(`${['自分', '右', '対面', '左'][i]}: ${p.score}${riichiMark}`);
+            this._scoreTxts[i].setText(`${windChars[wIdx]} ${['自分', '右', '対面', '左'][i]}: ${p.score}${riichiMark}`);
         });
 
         const kyotakuStr = g.kyotaku > 0 ? `  供託${g.kyotaku}本` : '';
@@ -128,6 +132,7 @@ export default class GameScene extends Phaser.Scene {
 
     _onDraw({ playerIndex }) {
         this._clearActionButtons();
+        if (playerIndex === 0) this._computeTenpaiCandidates(this.game_.players[0]);
         this._renderHand(playerIndex);
         this._updateInfoTexts();
         this._playSfxDraw();
@@ -139,6 +144,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onDiscard({ playerIndex }) {
+        if (playerIndex === 0) this._tenpaiCandidates = [];
         this._renderHand(playerIndex);
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
@@ -189,6 +195,16 @@ export default class GameScene extends Phaser.Scene {
 
     _showRoundEndPanel({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
         const g = this.game_;
+
+        // 4-B/4-D: 点数変動フロートテキスト + スコアバーアニメーション
+        g.players.forEach((p, i) => {
+            const delta = p.score - this._prevScores[i];
+            if (delta !== 0) {
+                this._showScoreFloat(i, delta);
+                this._animateScoreChange(i, delta);
+            }
+        });
+
         const playerLabels = ['自分', '右', '対面', '左'];
         let lines = [];
 
@@ -261,6 +277,8 @@ export default class GameScene extends Phaser.Scene {
         this._riichiStickList = [];
         this._selectedIdx = -1;
         this._hintTxt.setText('');
+        this._tenpaiCandidates = [];
+        this._prevScores = g.players.map(p => p.score);
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
         g.nextRound(this._lastDealerContinues);
         // 飛び等でゲーム終了した場合は _onGameEnd で処理済みなので描画しない
@@ -513,7 +531,7 @@ export default class GameScene extends Phaser.Scene {
      *   bg … Image（クリック判定・tint はこちらで操作）
      *   txt … 常に null（_clearGfxList との互換のため保持）
      */
-    _drawTile(x, y, tile, { selected = false, back = false, small = false, rotated = false } = {}) {
+    _drawTile(x, y, tile, { selected = false, back = false, small = false, rotated = false, tenpai = false } = {}) {
         const w = small ? Math.floor(TW * 0.82) : TW;
         const h = small ? Math.floor(TH * 0.82) : TH;
 
@@ -530,7 +548,8 @@ export default class GameScene extends Phaser.Scene {
         const img = this.add.image(x, y, texKey);
         // rotated 時: setDisplaySize は元サイズのまま → setAngle(90) で視覚上 w/h が入れ替わる
         img.setDisplaySize(w - 1, h - 1);
-        if (selected) img.setTint(0xffff44);   // 選択中: 明黄色 tint
+        if (selected)     img.setTint(0xffff44);  // 選択中: 明黄色 tint
+        else if (tenpai)  img.setTint(0x88ff88);  // テンパイ候補: 薄緑 tint
         if (rotated)  img.setAngle(90);
 
         return { bg: img, txt: null };
@@ -687,8 +706,10 @@ export default class GameScene extends Phaser.Scene {
             const x    = startX + idx * (TW + TG);
             const isLast = idx === n - 1;
             const dy   = isLast ? -8 : 0; // ツモ牌を少し持ち上げる
+            const isTenpai = !player.isRiichi && this._tenpaiCandidates.includes(idx);
             const obj  = this._drawTile(x, 660 + dy, tile, {
                 selected: this._selectedIdx === idx,
+                tenpai:   isTenpai,
             });
             this._handGfxList[0].push(obj);
         });
@@ -936,6 +957,68 @@ export default class GameScene extends Phaser.Scene {
             const stick = this.add.rectangle(x, y, w, h, 0xfff5e0)
                 .setStrokeStyle(1, 0x999999);
             this._riichiStickList.push(stick);
+        });
+    }
+
+    // =====================================
+    // UX改善 (Phase UI-4)
+    // =====================================
+
+    // 4-A: どの牌を切ればテンパイになるかを計算（14枚の手牌用）
+    _computeTenpaiCandidates(player) {
+        this._tenpaiCandidates = [];
+        if (player.isRiichi) return;
+        const tiles = player.hand.tiles;
+        for (let i = 0; i < tiles.length; i++) {
+            const removed = tiles.splice(i, 1)[0];
+            if (player.hand.isTenpai()) this._tenpaiCandidates.push(i);
+            tiles.splice(i, 0, removed);
+        }
+    }
+
+    // 4-B: 点数変動フロートテキスト演出（各プレイヤーの得点変化を表示）
+    _showScoreFloat(playerIndex, delta) {
+        // 各プレイヤー位置から中央テーブル方向へ流れるアニメーション
+        const floats = [
+            { x: 640,  y: 625, tx: 640,  ty: 560 },  // P0: 上（テーブル中央）へ
+            { x: 1140, y: 350, tx: 1060, ty: 350 },  // P1: 左（テーブル中央）へ
+            { x: 640,  y: 100, tx: 640,  ty: 165 },  // P2: 下（テーブル中央）へ
+            { x: 120,  y: 350, tx: 205,  ty: 350 },  // P3: 右（テーブル中央）へ
+        ];
+        const { x, y, tx, ty } = floats[playerIndex];
+        const sign  = delta > 0 ? '+' : '';
+        const color = delta > 0 ? '#88ff88' : '#ff8888';
+        const txt = this.add.text(x, y, `${sign}${delta}`, {
+            fontSize: '24px', color, fontFamily: 'monospace',
+            stroke: '#000000', strokeThickness: 3,
+        }).setOrigin(0.5).setDepth(40);
+        this.tweens.add({
+            targets: txt,
+            x: tx,
+            y: ty,
+            alpha: 0,
+            duration: 1400,
+            ease: 'Power2.Out',
+            onComplete: () => txt.destroy(),
+        });
+    }
+
+    // 4-D: スコアバーテキストを点数変動時に一時的に拡大・色変化
+    _animateScoreChange(playerIndex, delta) {
+        const scoreTxt = this._scoreTxts[playerIndex];
+        scoreTxt.setTint(delta > 0 ? 0xffdd44 : 0xff6666);
+        this.tweens.add({
+            targets: scoreTxt,
+            scaleX: 1.3,
+            scaleY: 1.3,
+            duration: 200,
+            ease: 'Power2.Out',
+            yoyo: true,
+            repeat: 0,
+            onComplete: () => {
+                scoreTxt.setScale(1);
+                scoreTxt.clearTint();
+            },
         });
     }
 }
