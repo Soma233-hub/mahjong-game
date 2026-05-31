@@ -33,6 +33,7 @@ export default class GameScene extends Phaser.Scene {
         this._riichiCandidates      = [];
         this._lastDealerContinues   = false;
         this._lastDiscardPos        = null;   // 2-B: 捨て牌アニメ用
+        this._prevScores            = null;   // 4-D: スコアバーフラッシュ用
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -100,6 +101,16 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '14px', color: '#ffee88', fontFamily: 'monospace',
         }).setOrigin(0, 0.5);
 
+        // 4-C: 風牌バッジ（P0=下, P1=右, P2=上, P3=左）
+        const windStyle = { fontSize: '20px', color: '#ffcc44', fontFamily: 'monospace', backgroundColor: '#1a1a00', padding: { x: 5, y: 3 } };
+        this._windBadges = [
+            this.add.text( 490, 605, '', windStyle).setOrigin(0.5),  // P0 下
+            this.add.text(1060, 360, '', windStyle).setOrigin(0.5),  // P1 右
+            this.add.text( 200,  72, '', windStyle).setOrigin(0.5),  // P2 上
+            this.add.text( 210, 360, '', windStyle).setOrigin(0.5),  // P3 左
+        ];
+
+        this._prevScores = this.game_.players.map(p => p.score);
         this._updateInfoTexts();
     }
 
@@ -110,16 +121,28 @@ export default class GameScene extends Phaser.Scene {
         const roundNum  = (g.round % 4) + 1;
         this._roundTxt.setText(`${roundWind}${roundNum}局 ${g.honba}本場`);
 
+        const seatWinds = windNames;
+        const labels    = ['自分', '右', '対面', '左'];
         g.players.forEach((p, i) => {
             const riichiMark = p.isRiichi ? '★' : '';
-            this._scoreTxts[i].setText(`${['自分', '右', '対面', '左'][i]}: ${p.score}${riichiMark}`);
+            const seatWind   = seatWinds[(i - (g.dealerIndex ?? 0) + 4) % 4];
+            this._scoreTxts[i].setText(`${labels[i]}(${seatWind}): ${p.score}${riichiMark}`);
         });
+
+        // 4-D: 点数変動時にスコアテキストをフラッシュ
+        if (this._prevScores) {
+            g.players.forEach((p, i) => {
+                if (p.score !== this._prevScores[i]) this._flashScoreText(i);
+            });
+        }
+        this._prevScores = g.players.map(p => p.score);
 
         const kyotakuStr = g.kyotaku > 0 ? `  供託${g.kyotaku}本` : '';
         this._wallTxt.setText(`山 ${g.wall.remaining}枚${kyotakuStr}`);
 
         this._updateDoraDisplay();
         this._updateRiichiSticks();
+        this._updateWindBadges();
     }
 
     // =====================================
@@ -180,6 +203,7 @@ export default class GameScene extends Phaser.Scene {
         const panelData = { result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices };
 
         if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
+            this._animateScoreFloat(winnerIndex, total);   // 4-B: 点数フロート
             this._animateWin(winnerIndex, yakuResult, result,
                 () => this._showRoundEndPanel(panelData));
         } else {
@@ -683,6 +707,9 @@ export default class GameScene extends Phaser.Scene {
         const totalW = n * (TW + TG);
         const startX = 640 - totalW / 2 + TW / 2;
 
+        // 4-A: テンパイ維持候補インデックス（薄い青ハイライト）
+        const tenpaiIdxs = this._getTenpaiCandidates(player);
+
         tiles.forEach((tile, idx) => {
             const x    = startX + idx * (TW + TG);
             const isLast = idx === n - 1;
@@ -690,6 +717,10 @@ export default class GameScene extends Phaser.Scene {
             const obj  = this._drawTile(x, 660 + dy, tile, {
                 selected: this._selectedIdx === idx,
             });
+            // 選択中でないテンパイ候補牌に薄い水色 tint
+            if (tenpaiIdxs.includes(idx) && this._selectedIdx !== idx) {
+                obj.bg?.setTint(0xaaddff);
+            }
             this._handGfxList[0].push(obj);
         });
     }
@@ -936,6 +967,79 @@ export default class GameScene extends Phaser.Scene {
             const stick = this.add.rectangle(x, y, w, h, 0xfff5e0)
                 .setStrokeStyle(1, 0x999999);
             this._riichiStickList.push(stick);
+        });
+    }
+
+    // =====================================
+    // Phase UI-4: UX 改善
+    // =====================================
+
+    // 4-A: テンパイ維持候補インデックスを返す（14枚保持時かつ非リーチのみ）
+    _getTenpaiCandidates(player) {
+        if (player.hand.tiles.length !== 14 || player.isRiichi) return [];
+        const result = [];
+        for (let i = 0; i < player.hand.tiles.length; i++) {
+            const removed = player.hand.tiles.splice(i, 1)[0];
+            if (player.hand.isTenpai()) result.push(i);
+            player.hand.tiles.splice(i, 0, removed);
+        }
+        return result;
+    }
+
+    // 4-B: 和了者エリアから点数フロートテキストが上昇する演出
+    _animateScoreFloat(winnerIndex, total) {
+        if (!total || total <= 0) return;
+        const paths = [
+            { x: 640,  y: 605, ex: 640,  ey: 490 },  // P0 下→上
+            { x: 1060, y: 360, ex: 940,  ey: 300 },  // P1 右→左上
+            { x: 640,  y: 115, ex: 640,  ey: 230 },  // P2 上→下
+            { x: 210,  y: 360, ex: 330,  ey: 300 },  // P3 左→右上
+        ];
+        const p = paths[winnerIndex] ?? paths[0];
+        const txt = this.add.text(p.x, p.y, `+${total}`, {
+            fontSize: '36px', color: '#ffdd00', fontFamily: 'monospace',
+            stroke: '#000000', strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(45).setAlpha(0);
+        this.tweens.add({
+            targets: txt,
+            x: p.ex,
+            y: p.ey,
+            alpha: { from: 0, to: 1 },
+            duration: 700,
+            ease: 'Power2.Out',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: txt,
+                    alpha: 0,
+                    duration: 400,
+                    delay: 300,
+                    onComplete: () => txt.destroy(),
+                });
+            },
+        });
+    }
+
+    // 4-C: 各プレイヤーの座席風（東南西北）バッジを更新
+    _updateWindBadges() {
+        const g          = this.game_;
+        const windChars  = ['東', '南', '西', '北'];
+        const dealer     = g.dealerIndex ?? 0;
+        this._windBadges.forEach((badge, playerIdx) => {
+            badge.setText(windChars[(playerIdx - dealer + 4) % 4]);
+        });
+    }
+
+    // 4-D: 点数変動時のスコアテキスト拡大フラッシュ
+    _flashScoreText(i) {
+        const txt = this._scoreTxts[i];
+        if (!txt) return;
+        this.tweens.add({
+            targets: txt,
+            scaleX: 1.45,
+            scaleY: 1.45,
+            duration: 150,
+            yoyo: true,
+            ease: 'Power2.Out',
         });
     }
 }
