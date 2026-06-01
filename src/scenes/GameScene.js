@@ -235,8 +235,9 @@ export default class GameScene extends Phaser.Scene {
             lines = [`チョンボ  ${playerLabels[winnerIndex]}`];
         }
 
+        const pLabels = ['自分', '右', '対面', '左'];
         lines.push('');
-        lines.push(g.players.map(p => `P${p.index}: ${p.score}`).join('  '));
+        lines.push(g.players.map(p => `${pLabels[p.index]}: ${p.score}`).join('  '));
 
         // パネル (center=360, height=280 → y=[220,500])
         const panelBg = this.add.rectangle(640, 360, 620, 280, 0x000000, 0.88)
@@ -308,7 +309,7 @@ export default class GameScene extends Phaser.Scene {
         // 四槓散了: ツモ和了のみ可能
         if (g._fourKanRyuukyoku) {
             if (g.canDeclareWin(0)) {
-                this._addButton(900, 662, 'ツモ', 0x884400, () => {
+                this._addButton(1100, 662, 'ツモ', 0x884400, () => {
                     this._clearActionButtons();
                     g.processWin(0);
                 });
@@ -318,9 +319,9 @@ export default class GameScene extends Phaser.Scene {
             return;
         }
 
-        // ツモ和了ボタン（役チェック込み）
+        // ツモ和了ボタン（役チェック込み）— 手牌右端(~966px)と重ならないよう右端に配置
         if (g.canDeclareWin(0)) {
-            this._addButton(900, 662, 'ツモ', 0x884400, () => {
+            this._addButton(1100, 662, 'ツモ', 0x884400, () => {
                 this._clearActionButtons();
                 g.processWin(0);
             });
@@ -332,7 +333,7 @@ export default class GameScene extends Phaser.Scene {
             ? ankanIds.filter(id => g._canAnkanDuringRiichi(p0, id))
             : ankanIds;
         if (validAnkans.length > 0) {
-            this._addButton(1050, 662, '暗槓', 0x334477, () => {
+            this._addButton(1215, 662, '暗槓', 0x334477, () => {
                 this._clearActionButtons();
                 g.processAnkan(0, validAnkans[0]);
             });
@@ -342,7 +343,7 @@ export default class GameScene extends Phaser.Scene {
             // 加槓ボタン（リーチ中は不可）
             const kakanOpts = p0.hand.findKakanOptions();
             if (kakanOpts.length > 0) {
-                this._addButton(1050, 662, '加槓', 0x334477, () => {
+                this._addButton(1215, 662, '加槓', 0x334477, () => {
                     this._clearActionButtons();
                     g.processKakan(0, kakanOpts[0].meldIndex);
                 });

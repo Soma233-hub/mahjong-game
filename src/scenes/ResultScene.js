@@ -19,7 +19,7 @@ export default class ResultScene extends Phaser.Scene {
 
         const rankColors = ['#ffd700', '#c0c0c0', '#cd7f32', '#aaaaaa'];
         const rankLabels = ['1位', '2位', '3位', '4位'];
-        const playerNames = ['自分', 'P1', 'P2', 'P3'];
+        const playerNames = ['自分', '右', '対面', '左'];
         const umaTable = [20, 10, -10, -20];
 
         // 列ヘッダー
