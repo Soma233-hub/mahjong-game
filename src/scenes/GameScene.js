@@ -229,14 +229,14 @@ export default class GameScene extends Phaser.Scene {
             let tenpaiStr;
             if (!tenpaiIndices || tenpaiIndices.length === 0) tenpaiStr = '全員ノーテン';
             else if (tenpaiIndices.length === 4)              tenpaiStr = '全員テンパイ';
-            else tenpaiStr = `テンパイ: ${tenpaiIndices.map(i => `P${i}`).join(' ')}`;
+            else tenpaiStr = `テンパイ: ${tenpaiIndices.map(i => ['自分','右','対面','左'][i]).join(' ')}`;
             lines = ['流局', tenpaiStr];
         } else if (result === ROUND_RESULT.CHOMBO) {
             lines = [`チョンボ  ${playerLabels[winnerIndex]}`];
         }
 
         lines.push('');
-        lines.push(g.players.map(p => `P${p.index}: ${p.score}`).join('  '));
+        lines.push(g.players.map((p, i) => `${['自分','右','対面','左'][i]}: ${p.score}`).join('  '));
 
         // パネル (center=360, height=280 → y=[220,500])
         const panelBg = this.add.rectangle(640, 360, 620, 280, 0x000000, 0.88)
