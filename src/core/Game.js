@@ -39,6 +39,9 @@ export class Game {
             this.players[i].ai = new AILevel3(i);
         }
 
+        this._useIppatsu = options.useIppatsu ?? true;
+        this._useUraDora = options.useUraDora ?? true;
+
         this.state            = GAME_STATE.INIT;
         this.round            = 0;
         this.dealerIndex      = 0;
@@ -273,7 +276,7 @@ export class Game {
             isTsumo,
             isRiichi:       player.isRiichi,
             isDoubleRiichi: player.isDoubleRiichi,
-            isIppatsu:      player.isIppatsu,
+            isIppatsu:      this._useIppatsu && player.isIppatsu,
             seatWind,
             roundWind:      1,
             isHaitei:       isTsumo  && this.wall.isEmpty(),
@@ -781,7 +784,7 @@ export class Game {
             isTsumo,
             isRiichi:       winner.isRiichi,
             isDoubleRiichi: winner.isDoubleRiichi,
-            isIppatsu:      winner.isIppatsu,
+            isIppatsu:      this._useIppatsu && winner.isIppatsu,
             seatWind,
             roundWind:      1, // 東風戦固定
             isHaitei:       isTsumo  && this.wall.isEmpty(),
@@ -805,7 +808,7 @@ export class Game {
 
         // 裏ドラ（リーチ和了時）
         let uraDoraCnt = 0;
-        if (winner.isRiichi) {
+        if (winner.isRiichi && this._useUraDora) {
             this.wall.revealUraDora();
             uraDoraCnt = countUraDora(
                 winner.hand.tiles, winner.hand.melds, this.wall.uraDoraIndicators

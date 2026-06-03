@@ -18,7 +18,12 @@ export default class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
 
     create() {
-        this.game_ = new Game();
+        const settings = this.registry.get('gameSettings') ?? {};
+        this.game_ = new Game({
+            useIppatsu: settings.useIppatsu ?? true,
+            useUraDora: settings.useUraDora ?? true,
+        });
+        this._umaRule = settings.umaRule ?? '10-20';
 
         this._handGfxList       = [[], [], [], []];
         this._discardGfxList    = [[], [], [], []];

@@ -20,7 +20,9 @@ export default class ResultScene extends Phaser.Scene {
         const rankColors = ['#ffd700', '#c0c0c0', '#cd7f32', '#aaaaaa'];
         const rankLabels = ['1位', '2位', '3位', '4位'];
         const playerNames = ['自分', '右', '対面', '左'];
-        const umaTable = [20, 10, -10, -20];
+        const settings = this.registry.get('gameSettings') ?? {};
+        const umaRule = settings.umaRule ?? '10-20';
+        const umaTable = umaRule === '10-20' ? [20, 10, -10, -20] : [0, 0, 0, 0];
 
         // 列ヘッダー
         [
@@ -44,7 +46,7 @@ export default class ResultScene extends Phaser.Scene {
             const diff   = (p.score - 30000) / 1000;
             const final_ = diff + uma;
             const finalStr = (final_ >= 0 ? '+' : '') + final_.toFixed(1);
-            const umaStr   = uma >= 0 ? `+${uma}` : `${uma}`;
+            const umaStr   = umaRule === 'none' ? '−' : (uma >= 0 ? `+${uma}` : `${uma}`);
             const finalCol = final_ >= 0 ? '#88ff88' : '#ff8888';
 
             this.add.text(160, y, rankLabels[rank], {
@@ -72,7 +74,10 @@ export default class ResultScene extends Phaser.Scene {
         gfx.lineBetween(100, 610, 1180, 610);
 
         // 精算式の注記
-        this.add.text(640, 630, '精算点 = (持ち点 − 30000) ÷ 1000 + ウマ (10-20)',  {
+        const formula = umaRule === '10-20'
+            ? '精算点 = (持ち点 − 30000) ÷ 1000 + ウマ (10-20)'
+            : '精算点 = (持ち点 − 30000) ÷ 1000  (ウマなし)';
+        this.add.text(640, 630, formula, {
             fontSize: '13px', color: '#666688', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
