@@ -115,6 +115,14 @@ export default class GameScene extends Phaser.Scene {
             this.add.text( 210, 360, '', windStyle).setOrigin(0.5),  // P3 左
         ];
 
+        // 5-B: 役一覧「?」ボタン
+        this._yakuPopupObjs = [];
+        const helpBg  = this.add.rectangle(1260, 18, 36, 28, 0x444400).setDepth(5).setInteractive({ useHandCursor: true });
+        const helpTxt = this.add.text(1260, 18, '?', { fontSize: '16px', color: '#ffee44', fontFamily: 'monospace' }).setOrigin(0.5).setDepth(6);
+        helpBg.on('pointerover',  () => helpBg.setFillStyle(0x666600))
+              .on('pointerout',   () => helpBg.setFillStyle(0x444400))
+              .on('pointerdown',  () => this._toggleYakuPopup());
+
         this._prevScores = this.game_.players.map(p => p.score);
         this._updateInfoTexts();
     }
@@ -1046,5 +1054,161 @@ export default class GameScene extends Phaser.Scene {
             yoyo: true,
             ease: 'Power2.Out',
         });
+    }
+
+    // =====================================
+    // 5-B: 役一覧ポップアップ
+    // =====================================
+
+    _toggleYakuPopup() {
+        if (this._yakuPopupObjs.length > 0) {
+            this._closeYakuPopup();
+        } else {
+            this._showYakuPopup();
+        }
+    }
+
+    _closeYakuPopup() {
+        this._yakuPopupObjs.forEach(o => o.destroy());
+        this._yakuPopupObjs = [];
+    }
+
+    _showYakuPopup() {
+        const depth   = 90;
+        const PW      = 1180;
+        const PH      = 620;
+        const PX      = 640;
+        const PY      = 375;
+
+        // 半透明背景
+        const overlay = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.65).setDepth(depth);
+        overlay.setInteractive().on('pointerdown', () => this._closeYakuPopup());
+
+        // パネル
+        const panel = this.add.rectangle(PX, PY, PW, PH, 0x1a2a1a).setDepth(depth + 1)
+            .setStrokeStyle(2, 0x88aa44);
+
+        // タイトル
+        const title = this.add.text(PX, PY - PH / 2 + 22, '役一覧', {
+            fontSize: '18px', color: '#ffee44', fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(depth + 2);
+
+        // ×ボタン
+        const closeBg = this.add.rectangle(PX + PW / 2 - 22, PY - PH / 2 + 22, 34, 28, 0x882222)
+            .setDepth(depth + 2).setInteractive({ useHandCursor: true });
+        const closeTxt = this.add.text(PX + PW / 2 - 22, PY - PH / 2 + 22, '×', {
+            fontSize: '16px', color: '#fff', fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(depth + 3);
+        closeBg.on('pointerover',  () => closeBg.setFillStyle(0xbb3333))
+               .on('pointerout',   () => closeBg.setFillStyle(0x882222))
+               .on('pointerdown',  () => this._closeYakuPopup());
+
+        // 仕切り線（タイトル下）
+        const divLine = this.add.rectangle(PX, PY - PH / 2 + 44, PW - 20, 1, 0x556633).setDepth(depth + 2);
+
+        // 役テーブルデータ （[name, han_str, note]）
+        // han_str: '1翻' / '1↓0' / '2↓1' etc.  note: '門前のみ' etc.
+        const COL_DATA = [
+            // ---- 列 0: 1翻役 ----
+            [
+                ['— 1翻 —',           '',         '',          '#ffee88'],
+                ['リーチ',             '1翻',      '門前',      '#ffffff'],
+                ['ダブルリーチ',       '2翻',      '門前',      '#ffffff'],
+                ['一発',               '1翻',      '門前',      '#ffffff'],
+                ['門前清自摸和',       '1翻',      '門前',      '#ffffff'],
+                ['平和',               '1翻',      '門前',      '#ffffff'],
+                ['一盃口',             '1翻',      '門前',      '#ffffff'],
+                ['',                  '',          '',          ''],
+                ['— 1翻（共通）—',    '',          '',         '#ffee88'],
+                ['タンヤオ',           '1翻',      '',          '#ffffff'],
+                ['白 / 發 / 中',       '1翻',      '',          '#ffffff'],
+                ['自風 / 場風',        '1翻',      '',          '#ffffff'],
+                ['ハイテイ/ホウテイ',  '1翻',      '',          '#ffffff'],
+                ['嶺上開花',           '1翻',      '',          '#ffffff'],
+                ['槍槓',               '1翻',      '',          '#ffffff'],
+            ],
+            // ---- 列 1: 2〜6翻役 ----
+            [
+                ['— 2翻 —',           '',         '',          '#ffee88'],
+                ['七対子',             '2翻',      '門前',      '#ffffff'],
+                ['二盃口',             '3翻',      '門前',      '#ffffff'],
+                ['三色同順',           '2↓1翻',   '',          '#ffffff'],
+                ['一気通貫',           '2↓1翻',   '',          '#ffffff'],
+                ['混全帯么九',         '2↓1翻',   '',          '#ffffff'],
+                ['対々和',             '2翻',      '',          '#ffffff'],
+                ['三暗刻',             '2翻',      '',          '#ffffff'],
+                ['三色同刻',           '2翻',      '',          '#ffffff'],
+                ['三槓子',             '2翻',      '',          '#ffffff'],
+                ['混老頭',             '2翻',      '',          '#ffffff'],
+                ['小三元',             '2翻',      '',          '#ffffff'],
+                ['',                  '',          '',          ''],
+                ['— 3翻 / 6翻 —',     '',         '',          '#ffee88'],
+                ['混一色',             '3↓2翻',   '',          '#ffffff'],
+                ['純全帯么九',         '3↓2翻',   '',          '#ffffff'],
+                ['清一色',             '6↓5翻',   '',          '#ffffff'],
+            ],
+            // ---- 列 2: 役満 ----
+            [
+                ['— 役満 —',          '',         '',          '#ff8844'],
+                ['天和',               '役満',     '親のみ',    '#ffffff'],
+                ['地和',               '役満',     '子のみ',    '#ffffff'],
+                ['国士無双',           '役満',     '門前',      '#ffffff'],
+                ['四暗刻',             '役満',     '門前',      '#ffffff'],
+                ['大三元',             '役満',     '',          '#ffffff'],
+                ['字一色',             '役満',     '',          '#ffffff'],
+                ['緑一色',             '役満',     '',          '#ffffff'],
+                ['小四喜',             '役満',     '',          '#ffffff'],
+                ['九連宝燈',           '役満',     '門前',      '#ffffff'],
+                ['四槓子',             '役満',     '',          '#ffffff'],
+                ['',                  '',          '',          ''],
+                ['— ダブル役満 —',     '',         '',          '#ff4444'],
+                ['国士無双十三面',     'ダブル',   '門前',      '#ffaaaa'],
+                ['四暗刻単騎',         'ダブル',   '門前',      '#ffaaaa'],
+                ['大四喜',             'ダブル',   '',          '#ffaaaa'],
+                ['純正九連宝燈',       'ダブル',   '門前',      '#ffaaaa'],
+            ],
+        ];
+
+        const COL_COUNT    = COL_DATA.length;
+        const COL_W        = (PW - 40) / COL_COUNT;
+        const ROW_H        = 21;
+        const START_X      = PX - PW / 2 + 20;
+        const START_Y      = PY - PH / 2 + 60;
+
+        const objs = [overlay, panel, title, closeBg, closeTxt, divLine];
+
+        for (let col = 0; col < COL_COUNT; col++) {
+            const cx = START_X + col * COL_W;
+            // 列区切り線
+            if (col > 0) {
+                objs.push(this.add.rectangle(cx - 6, PY, 1, PH - 50, 0x446633).setDepth(depth + 2));
+            }
+            const rows = COL_DATA[col];
+            for (let row = 0; row < rows.length; row++) {
+                const [name, han, note, color] = rows[row];
+                if (!name) continue;
+                const y = START_Y + row * ROW_H;
+
+                // 役名
+                objs.push(this.add.text(cx, y, name, {
+                    fontSize: '12px', color: color || '#ffffff', fontFamily: 'monospace',
+                }).setDepth(depth + 3).setOrigin(0, 0.5));
+
+                // 翻数（右揃え）
+                if (han) {
+                    objs.push(this.add.text(cx + COL_W - 60, y, han, {
+                        fontSize: '11px', color: '#aaddaa', fontFamily: 'monospace',
+                    }).setDepth(depth + 3).setOrigin(0, 0.5));
+                }
+                // 備考
+                if (note) {
+                    objs.push(this.add.text(cx + COL_W - 14, y, note, {
+                        fontSize: '10px', color: '#888888', fontFamily: 'monospace',
+                    }).setDepth(depth + 3).setOrigin(1, 0.5));
+                }
+            }
+        }
+
+        this._yakuPopupObjs = objs;
     }
 }
