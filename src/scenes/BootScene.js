@@ -56,7 +56,11 @@ export default class BootScene extends Phaser.Scene {
 
         // ゲーム設定の初期値をレジストリに登録
         if (!this.registry.has('gameSettings')) {
-            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20' });
+            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3 });
+        } else {
+            // 古いセーブデータに aiLevel がない場合の互換補完
+            const s = this.registry.get('gameSettings');
+            if (s.aiLevel === undefined) this.registry.set('gameSettings', { ...s, aiLevel: 3 });
         }
 
         // 設定ラベル
@@ -102,29 +106,35 @@ export default class BootScene extends Phaser.Scene {
     }
 
     _buildSettingsRow() {
-        const settings = this.registry.get('gameSettings');
-
+        // 4列（x: 210, 490, 770, 1050）
         const items = [
             {
                 label: '一発',
                 key: 'useIppatsu',
-                x: 280,
+                x: 210,
                 values: [true, false],
                 labels: ['あり', 'なし'],
             },
             {
                 label: '裏ドラ',
                 key: 'useUraDora',
-                x: 640,
+                x: 490,
                 values: [true, false],
                 labels: ['あり', 'なし'],
             },
             {
                 label: 'ウマ',
                 key: 'umaRule',
-                x: 1000,
+                x: 770,
                 values: ['10-20', 'none'],
                 labels: ['10-20', 'なし'],
+            },
+            {
+                label: 'AIレベル',
+                key: 'aiLevel',
+                x: 1050,
+                values: [3, 1],
+                labels: ['標準', '簡単'],
             },
         ];
 
@@ -168,7 +178,7 @@ export default class BootScene extends Phaser.Scene {
         // 罫線
         const gfx = this.add.graphics();
         gfx.lineStyle(1, 0x335533, 0.6);
-        gfx.lineBetween(200, 340, 1080, 340);
+        gfx.lineBetween(145, 340, 1115, 340);
     }
 
     // ============================================================

@@ -7,6 +7,7 @@
 import { Game, GAME_STATE } from '../src/core/Game.js';
 import { Tile, SUIT } from '../src/core/Tile.js';
 import { Meld, MELD_TYPE } from '../src/core/Meld.js';
+import { AILevel1 } from '../src/ai/AILevel1.js';
 import { AILevel3 } from '../src/ai/AILevel3.js';
 
 let passed = 0;
@@ -390,6 +391,73 @@ console.log('\n[selectDrawAction: リーチ中暗槓]');
     const result = ai.selectDrawAction(p0, g);
     assert(result.action === 'ankan', 'リーチ中・有効暗槓 → AI が ankan を宣言');
     assert(result.tileId === new Tile(SUIT.HONOR, 1).id, 'ankan する牌ID = 東(id=27)');
+}
+
+// ========================
+// AILevel1: 基本動作
+// ========================
+console.log('\n[AILevel1: 基本動作]');
+{
+    // selectDiscard: 常に末尾インデックスを返す
+    const g = new Game({ allAI: true, aiLevel: 1 });
+    g.wall.init();
+    const ai = new AILevel1(1);
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.PIN,4), new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,6),
+        new Tile(SUIT.SOO,7), new Tile(SUIT.SOO,8), new Tile(SUIT.SOO,9),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,2), new Tile(SUIT.HONOR,3),
+        new Tile(SUIT.HONOR,4), new Tile(SUIT.HONOR,5),
+    ];
+    const idx = ai.selectDiscard(p1, g);
+    assert(idx === 13, 'selectDiscard: 14枚手牌 → 末尾(13)を返す');
+}
+{
+    // selectClaimAction: 常にパス
+    const g = new Game({ allAI: true, aiLevel: 1 });
+    g.wall.init();
+    const ai = new AILevel1(2);
+    const p2 = g.players[2];
+    p2.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,1),
+        new Tile(SUIT.PIN,1), new Tile(SUIT.PIN,2), new Tile(SUIT.PIN,3),
+        new Tile(SUIT.SOO,1), new Tile(SUIT.SOO,2), new Tile(SUIT.SOO,3),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,1),
+        new Tile(SUIT.HONOR,2),
+    ];
+    const discardTile = new Tile(SUIT.MAN, 1);
+    const result = ai.selectClaimAction(p2, g, discardTile);
+    assert(result.action === 'pass', 'selectClaimAction: ポン可能でも常にパス');
+}
+{
+    // selectDrawAction: 和了不可 → ツモ切り（末尾）
+    const g = new Game({ allAI: true, aiLevel: 1 });
+    g.wall.init();
+    const ai = new AILevel1(1);
+    const p1 = g.players[1];
+    p1.hand.tiles = [
+        new Tile(SUIT.MAN,1), new Tile(SUIT.MAN,2), new Tile(SUIT.MAN,3),
+        new Tile(SUIT.PIN,4), new Tile(SUIT.PIN,5), new Tile(SUIT.PIN,6),
+        new Tile(SUIT.SOO,7), new Tile(SUIT.SOO,8), new Tile(SUIT.SOO,9),
+        new Tile(SUIT.HONOR,1), new Tile(SUIT.HONOR,2), new Tile(SUIT.HONOR,3),
+        new Tile(SUIT.HONOR,4), new Tile(SUIT.HONOR,5),
+    ];
+    const result = ai.selectDrawAction(p1, g);
+    assert(result.action === 'discard', 'selectDrawAction: 非和了 → discard');
+    assert(result.index === p1.hand.tiles.length - 1, 'selectDrawAction: 末尾インデックスをツモ切り');
+}
+{
+    // Game.js: aiLevel=1 で生成したとき players[1].ai が AILevel1 のインスタンスになる
+    const g = new Game({ aiLevel: 1 });
+    assert(g.players[1].ai instanceof AILevel1, 'aiLevel=1: players[1].ai が AILevel1 インスタンス');
+    assert(g.players[2].ai instanceof AILevel1, 'aiLevel=1: players[2].ai が AILevel1 インスタンス');
+    assert(g.players[3].ai instanceof AILevel1, 'aiLevel=1: players[3].ai が AILevel1 インスタンス');
+}
+{
+    // Game.js: aiLevel=3（デフォルト）で players[1].ai が AILevel3 のインスタンスになる
+    const g = new Game();
+    assert(g.players[1].ai instanceof AILevel3, 'aiLevel省略: players[1].ai が AILevel3 インスタンス');
 }
 
 // ========================

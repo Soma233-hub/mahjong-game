@@ -22,6 +22,7 @@ export default class GameScene extends Phaser.Scene {
         this.game_ = new Game({
             useIppatsu: settings.useIppatsu ?? true,
             useUraDora: settings.useUraDora ?? true,
+            aiLevel:    settings.aiLevel    ?? 3,
         });
         this._umaRule = settings.umaRule ?? '10-20';
 

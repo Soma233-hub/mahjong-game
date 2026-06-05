@@ -1,6 +1,7 @@
 import { Wall } from './Wall.js';
 import { Player } from './Player.js';
 import { Meld, MELD_TYPE } from './Meld.js';
+import { AILevel1 } from '../ai/AILevel1.js';
 import { AILevel3 } from '../ai/AILevel3.js';
 import { evaluateYaku } from '../logic/Yaku.js';
 import { calculateFu, calculateScore } from '../logic/Score.js';
@@ -28,7 +29,9 @@ export const ROUND_RESULT = Object.freeze({
 export class Game {
     constructor(options = {}) {
         this.wall    = new Wall();
-        const allAI  = options.allAI || false;
+        const allAI   = options.allAI || false;
+        const aiLevel = options.aiLevel ?? 3;
+        const AIClass = aiLevel === 1 ? AILevel1 : AILevel3;
         this.players = [
             new Player(0, !allAI),
             new Player(1, false),
@@ -36,7 +39,7 @@ export class Game {
             new Player(3, false),
         ];
         for (let i = (allAI ? 0 : 1); i <= 3; i++) {
-            this.players[i].ai = new AILevel3(i);
+            this.players[i].ai = new AIClass(i);
         }
 
         this._useIppatsu = options.useIppatsu ?? true;
