@@ -445,6 +445,13 @@
 - GitHub Issue #22 作成（週次レポート 2026-05-16）
 - 役ランキング: リーチ31.5%・タンヤオ15.1%・門前清自摸和13.4%・中13.4%・場風11.2%
 
+## 土日夕方セッション確認記録（2026-06-06）
+- 全テスト通過確認: 493/493 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 31)
+- **Phase UI-6 / 6-D 実装完了（スマートフォン対応）**
+  - index.html: viewport に maximum-scale=1/user-scalable=no 追加、touch-action:none、apple-mobile-web-app-capable 追加
+  - main.js: Phaser Scale Manager（FIT + CENTER_BOTH）でキャンバス自動リサイズ対応
+  - **Phase UI-6 全タスク完了 ✅**
+
 ## 土日午後セッション確認記録（2026-06-06）
 - 全テスト通過確認: 493/493 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 31)
 - **Phase UI-6 新規策定・6-A〜6-C 実装完了**
@@ -737,7 +744,7 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 | 6-A | 戦型選択（東風戦/半荘） | BootScene.js, Game.js, GameScene.js | ✅ 完了 |
 | 6-B | リーチ中待ち牌ヒント表示 | GameScene.js | ✅ 完了 |
 | 6-C | オープン手テンパイ待ち牌表示 | GameScene.js | ✅ 完了 |
-| 6-D | スマートフォン対応（キャンバスリサイズ） | index.html, main.js | ⬜ 未実装 |
+| 6-D | スマートフォン対応（キャンバスリサイズ） | index.html, main.js | ✅ 完了 |
 
 ---
 
