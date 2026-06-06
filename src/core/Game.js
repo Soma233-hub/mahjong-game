@@ -42,8 +42,10 @@ export class Game {
             this.players[i].ai = new AIClass(i);
         }
 
-        this._useIppatsu = options.useIppatsu ?? true;
-        this._useUraDora = options.useUraDora ?? true;
+        this._useIppatsu  = options.useIppatsu ?? true;
+        this._useUraDora  = options.useUraDora ?? true;
+        this._gameType    = options.gameType ?? 'tonpu';
+        this._maxRounds   = this._gameType === 'hanchan' ? 8 : 4;
 
         this.state            = GAME_STATE.INIT;
         this.round            = 0;
@@ -281,7 +283,7 @@ export class Game {
             isDoubleRiichi: player.isDoubleRiichi,
             isIppatsu:      this._useIppatsu && player.isIppatsu,
             seatWind,
-            roundWind:      1,
+            roundWind:      Math.floor(this.round / 4) + 1,
             isHaitei:       isTsumo  && this.wall.isEmpty(),
             isHoutei:       !isTsumo && this.wall.isEmpty(),
             isRinshan:      this._isRinshan,
@@ -789,7 +791,7 @@ export class Game {
             isDoubleRiichi: winner.isDoubleRiichi,
             isIppatsu:      this._useIppatsu && winner.isIppatsu,
             seatWind,
-            roundWind:      1, // 東風戦固定
+            roundWind:      Math.floor(this.round / 4) + 1,
             isHaitei:       isTsumo  && this.wall.isEmpty(),
             isHoutei:       !isTsumo && this.wall.isEmpty(),
             isRinshan:      this._isRinshan,
@@ -881,7 +883,7 @@ export class Game {
             this._checkGameEnd();
             return;
         }
-        if (this.round >= 4) {
+        if (this.round >= this._maxRounds) {
             this._checkGameEnd();
             return;
         }

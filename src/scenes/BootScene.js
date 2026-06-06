@@ -56,11 +56,14 @@ export default class BootScene extends Phaser.Scene {
 
         // ゲーム設定の初期値をレジストリに登録
         if (!this.registry.has('gameSettings')) {
-            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3 });
+            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3, gameType: 'tonpu' });
         } else {
-            // 古いセーブデータに aiLevel がない場合の互換補完
+            // 古いセーブデータに存在しないキーを補完
             const s = this.registry.get('gameSettings');
-            if (s.aiLevel === undefined) this.registry.set('gameSettings', { ...s, aiLevel: 3 });
+            const patched = { ...s };
+            if (patched.aiLevel   === undefined) patched.aiLevel   = 3;
+            if (patched.gameType  === undefined) patched.gameType  = 'tonpu';
+            this.registry.set('gameSettings', patched);
         }
 
         // 設定ラベル
@@ -106,33 +109,40 @@ export default class BootScene extends Phaser.Scene {
     }
 
     _buildSettingsRow() {
-        // 4列（x: 210, 490, 770, 1050）
+        // 5列（x: 160, 400, 640, 880, 1120）
         const items = [
             {
                 label: '一発',
                 key: 'useIppatsu',
-                x: 210,
+                x: 160,
                 values: [true, false],
                 labels: ['あり', 'なし'],
             },
             {
                 label: '裏ドラ',
                 key: 'useUraDora',
-                x: 490,
+                x: 400,
                 values: [true, false],
                 labels: ['あり', 'なし'],
             },
             {
                 label: 'ウマ',
                 key: 'umaRule',
-                x: 770,
+                x: 640,
                 values: ['10-20', 'none'],
                 labels: ['10-20', 'なし'],
             },
             {
+                label: '戦型',
+                key: 'gameType',
+                x: 880,
+                values: ['tonpu', 'hanchan'],
+                labels: ['東風戦', '半荘'],
+            },
+            {
                 label: 'AIレベル',
                 key: 'aiLevel',
-                x: 1050,
+                x: 1120,
                 values: [3, 1],
                 labels: ['標準', '簡単'],
             },
@@ -178,7 +188,7 @@ export default class BootScene extends Phaser.Scene {
         // 罫線
         const gfx = this.add.graphics();
         gfx.lineStyle(1, 0x335533, 0.6);
-        gfx.lineBetween(145, 340, 1115, 340);
+        gfx.lineBetween(110, 340, 1170, 340);
     }
 
     // ============================================================

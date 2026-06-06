@@ -23,6 +23,7 @@ export default class GameScene extends Phaser.Scene {
             useIppatsu: settings.useIppatsu ?? true,
             useUraDora: settings.useUraDora ?? true,
             aiLevel:    settings.aiLevel    ?? 3,
+            gameType:   settings.gameType   ?? 'tonpu',
         });
         this._umaRule = settings.umaRule ?? '10-20';
 
@@ -104,6 +105,11 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '13px', color: '#cccccc', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
+        // 6-B: リーチ中の待ち牌ヒント
+        this._riichiWaitTxt = this.add.text(640, 626, '', {
+            fontSize: '13px', color: '#ffee99', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
         // ドラ表示ラベル（静的）
         this.add.text(529, 325, 'ドラ:', {
             fontSize: '14px', color: '#ffee88', fontFamily: 'monospace',
@@ -159,6 +165,32 @@ export default class GameScene extends Phaser.Scene {
         this._updateDoraDisplay();
         this._updateRiichiSticks();
         this._updateWindBadges();
+        this._updateRiichiWaitHint();
+    }
+
+    _updateRiichiWaitHint() {
+        const p0 = this.game_.players[0];
+        if (p0.isRiichi) {
+            const waitIds = p0.hand.getWaitingTileIds();
+            const names = waitIds.map(id => this._tileShortName(id)).join(' ');
+            this._riichiWaitTxt.setColor('#ffee99');
+            this._riichiWaitTxt.setText(names.length > 0 ? `待ち: ${names}` : '');
+        } else if (p0.hand.tiles.length === 13 && p0.hand.isTenpai()) {
+            // オープン手テンパイ中（他家ターン中）
+            const waitIds = p0.hand.getWaitingTileIds();
+            const names = waitIds.map(id => this._tileShortName(id)).join(' ');
+            this._riichiWaitTxt.setColor('#99ffcc');
+            this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+        } else {
+            this._riichiWaitTxt.setText('');
+        }
+    }
+
+    _tileShortName(id) {
+        if (id < 9)  return `${id + 1}m`;
+        if (id < 18) return `${id - 8}p`;
+        if (id < 27) return `${id - 17}s`;
+        return ['東', '南', '西', '北', '白', '發', '中'][id - 27] ?? '?';
     }
 
     // =====================================
