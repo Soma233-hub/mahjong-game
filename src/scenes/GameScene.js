@@ -40,6 +40,8 @@ export default class GameScene extends Phaser.Scene {
         this._lastDealerContinues   = false;
         this._lastDiscardPos        = null;   // 2-B: 捨て牌アニメ用
         this._prevScores            = null;   // 4-D: スコアバーフラッシュ用
+        this._p0Agari               = 0;
+        this._totalRounds           = 0;
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -202,6 +204,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
+        this._totalRounds++;
+        if ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) && winnerIndex === 0) {
+            this._p0Agari++;
+        }
         this._clearActionButtons();
         this._clearClaimButtons();
 
@@ -275,7 +281,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onGameEnd({ players }) {
-        this.scene.start('ResultScene', { players });
+        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
     }
 
     // =====================================
@@ -285,7 +291,7 @@ export default class GameScene extends Phaser.Scene {
     _onNextRound() {
         const g = this.game_;
         if (g.state === GAME_STATE.GAME_END) {
-            this.scene.start('ResultScene', { players: g.players });
+            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
             return;
         }
         // 描画をクリア

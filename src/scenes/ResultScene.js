@@ -2,7 +2,22 @@ export default class ResultScene extends Phaser.Scene {
     constructor() { super('ResultScene'); }
 
     init(data) {
-        this.players = data.players || [];
+        this.players      = data.players      || [];
+        this._p0Agari     = data.p0Agari      ?? 0;
+        this._totalRounds = data.totalRounds  ?? 0;
+    }
+
+    // localStorage から通算成績を読み込み、今局分を加算して保存。保存後の stats を返す。
+    _updateStats(p0Score, isRank1) {
+        let stats = {};
+        try { stats = JSON.parse(localStorage.getItem('mahjong_stats') || '{}'); } catch (_) {}
+        stats.games    = (stats.games    || 0) + 1;
+        stats.rank1    = (stats.rank1    || 0) + (isRank1 ? 1 : 0);
+        stats.agari    = (stats.agari    || 0) + this._p0Agari;
+        stats.rounds   = (stats.rounds   || 0) + this._totalRounds;
+        stats.scoreSum = (stats.scoreSum || 0) + p0Score;
+        try { localStorage.setItem('mahjong_stats', JSON.stringify(stats)); } catch (_) {}
+        return stats;
     }
 
     create() {
@@ -77,13 +92,28 @@ export default class ResultScene extends Phaser.Scene {
         const formula = umaRule === '10-20'
             ? '精算点 = (持ち点 − 30000) ÷ 1000 + ウマ (10-20)'
             : '精算点 = (持ち点 − 30000) ÷ 1000  (ウマなし)';
-        this.add.text(640, 630, formula, {
+        this.add.text(640, 622, formula, {
             fontSize: '13px', color: '#666688', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
+        // 通算成績
+        const p0       = this.players.find(p => p.index === 0);
+        const p0Score  = p0?.score ?? 25000;
+        const isRank1  = sorted[0]?.index === 0;
+        const stats    = this._updateStats(p0Score, isRank1);
+
+        const rank1Rate = stats.games  ? (stats.rank1 / stats.games  * 100).toFixed(1) : '0.0';
+        const agariRate = stats.rounds ? (stats.agari / stats.rounds * 100).toFixed(1) : '0.0';
+        const avgScore  = stats.games  ? Math.round(stats.scoreSum / stats.games) : 0;
+
+        this.add.text(640, 645,
+            `通算 ${stats.games}局  1位率 ${rank1Rate}%  和了率 ${agariRate}%  平均得点 ${avgScore}点`,
+            { fontSize: '12px', color: '#888899', fontFamily: 'monospace' }
+        ).setOrigin(0.5);
+
         // 再プレイボタン
-        const btnBg  = this.add.rectangle(640, 680, 200, 50, 0x334466);
-        const btnTxt = this.add.text(640, 680, '再プレイ', {
+        const btnBg  = this.add.rectangle(640, 692, 200, 50, 0x334466);
+        const btnTxt = this.add.text(640, 692, '再プレイ', {
             fontSize: '22px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
