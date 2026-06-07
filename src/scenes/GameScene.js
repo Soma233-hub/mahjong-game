@@ -19,11 +19,13 @@ export default class GameScene extends Phaser.Scene {
 
     create() {
         const settings = this.registry.get('gameSettings') ?? {};
+        this._allAI   = settings.allAI ?? false;
         this.game_ = new Game({
             useIppatsu: settings.useIppatsu ?? true,
             useUraDora: settings.useUraDora ?? true,
             aiLevel:    settings.aiLevel    ?? 3,
             gameType:   settings.gameType   ?? 'tonpu',
+            allAI:      this._allAI,
         });
         this._umaRule = settings.umaRule ?? '10-20';
 
@@ -132,6 +134,15 @@ export default class GameScene extends Phaser.Scene {
               .on('pointerout',   () => helpBg.setFillStyle(0x444400))
               .on('pointerdown',  () => this._toggleYakuPopup());
 
+        // 観戦モードインジケーター
+        if (this._allAI) {
+            this.add.rectangle(1210, 668, 140, 28, 0x224455, 0.85)
+                .setStrokeStyle(1, 0x4488aa);
+            this.add.text(1210, 668, '観戦モード', {
+                fontSize: '14px', color: '#aaddff', fontFamily: 'monospace',
+            }).setOrigin(0.5);
+        }
+
         this._prevScores = this.game_.players.map(p => p.score);
         this._updateInfoTexts();
     }
@@ -205,7 +216,9 @@ export default class GameScene extends Phaser.Scene {
 
         if (playerIndex === 0) {
             this._animateDrawP0();
-            this._showPlayer0Actions();
+            if (!this._allAI) {
+                this._showPlayer0Actions();
+            }
         }
     }
 

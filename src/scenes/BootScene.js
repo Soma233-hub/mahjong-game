@@ -56,13 +56,14 @@ export default class BootScene extends Phaser.Scene {
 
         // ゲーム設定の初期値をレジストリに登録
         if (!this.registry.has('gameSettings')) {
-            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3, gameType: 'tonpu' });
+            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3, gameType: 'tonpu', allAI: false });
         } else {
             // 古いセーブデータに存在しないキーを補完
             const s = this.registry.get('gameSettings');
             const patched = { ...s };
             if (patched.aiLevel   === undefined) patched.aiLevel   = 3;
             if (patched.gameType  === undefined) patched.gameType  = 'tonpu';
+            if (patched.allAI     === undefined) patched.allAI     = false;
             this.registry.set('gameSettings', patched);
         }
 
@@ -96,16 +97,36 @@ export default class BootScene extends Phaser.Scene {
             });
 
         // ゲーム開始ボタン
-        const startBg = this.add.rectangle(640, 570, 220, 52, 0x225522)
+        const startBg = this.add.rectangle(490, 570, 220, 52, 0x225522)
             .setInteractive({ useHandCursor: true })
             .setStrokeStyle(1, 0x44aa44);
-        this.add.text(640, 570, 'ゲーム開始 ▶', {
+        this.add.text(490, 570, 'ゲーム開始 ▶', {
             fontSize: '24px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5);
         startBg
             .on('pointerover', () => startBg.setFillStyle(0x337733))
             .on('pointerout',  () => startBg.setFillStyle(0x225522))
-            .on('pointerdown', () => this.scene.start('GameScene'));
+            .on('pointerdown', () => {
+                const s = { ...this.registry.get('gameSettings'), allAI: false };
+                this.registry.set('gameSettings', s);
+                this.scene.start('GameScene');
+            });
+
+        // 観戦ボタン（AllAI自動対局）
+        const watchBg = this.add.rectangle(790, 570, 190, 52, 0x224455)
+            .setInteractive({ useHandCursor: true })
+            .setStrokeStyle(1, 0x4488aa);
+        this.add.text(790, 570, '観戦 ▶', {
+            fontSize: '24px', color: '#aaddff', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+        watchBg
+            .on('pointerover', () => watchBg.setFillStyle(0x336677))
+            .on('pointerout',  () => watchBg.setFillStyle(0x224455))
+            .on('pointerdown', () => {
+                const s = { ...this.registry.get('gameSettings'), allAI: true };
+                this.registry.set('gameSettings', s);
+                this.scene.start('GameScene');
+            });
     }
 
     _buildSettingsRow() {

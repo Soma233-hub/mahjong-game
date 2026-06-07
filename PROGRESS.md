@@ -748,8 +748,31 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 
 ---
 
+### Phase UI-7: 観戦モード & QoL強化（第12週〜）
+**目的**: AllAI自動対局観戦・手牌ソート・UX改善
+
+| 工程 | 内容 | 対象ファイル | 状態 |
+|------|------|------------|------|
+| 7-A | 観戦モード（AllAI自動対局観戦・BootSceneに「観戦」ボタン） | BootScene.js, GameScene.js | ✅ 完了 |
+| 7-B | 手牌自動ソートボタン（P0手牌を数牌→字牌順に並べ替え） | GameScene.js, Hand.js | ⬜ 未完了 |
+| 7-C | 本場・供託の視覚表示（棒グラフまたはカウンター） | GameScene.js | ⬜ 未完了 |
+| 7-D | タイトル画面への「戻る」ボタン（ResultScene） | ResultScene.js | ⬜ 未完了 |
+
+---
+
+## 土日午前セッション確認記録（2026-06-07）
+- 全テスト通過確認: 493/493 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 31)
+- **Phase UI-7 新規策定・7-A 実装完了（観戦モード）**
+  - BootScene.js: `allAI: false` を gameSettings デフォルトに追加・既存セーブデータ補完
+  - BootScene.js: 「観戦 ▶」ボタン追加（x=790, y=570 / `allAI: true` で GameScene 起動）
+  - BootScene.js: 「ゲーム開始 ▶」を x=490 に移動（「観戦」ボタンと左右配置）
+  - GameScene.js: `this._allAI = settings.allAI ?? false` を追加
+  - GameScene.js: `new Game({ allAI: this._allAI })` に渡すよう更新
+  - GameScene.js: `_onDraw` で `!this._allAI` ガードを追加（観戦中は P0 操作UIをスキップ）
+  - GameScene.js: 観戦モード時に「観戦モード」インジケーターを右下に表示
+
 ## 次回作業内容
-- **現在のフォーカス**: Phase UI-0（残タスク5件）を既存ルーティンで消化
+- **現在のフォーカス**: Phase UI-7 残タスク（7-B〜7-D）
 - Phase UI-0 全完了後: 全4トリガーのプロンプトを Phase UI-1 内容に更新
 - 最終完成目標: Phase UI-4 完了 = ブラウザ実機テスト通過
 ## 次回作業内容（第6週残り・更新済み）
