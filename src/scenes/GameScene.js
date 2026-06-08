@@ -34,6 +34,7 @@ export default class GameScene extends Phaser.Scene {
         this._meldGfxList       = [[], [], [], []];
         this._doraGfxList       = [];
         this._riichiStickList   = [];
+        this._honbaKyotakuGfx   = [];
         this._actionButtons     = [];
         this._claimButtons      = [];
         this._riichiBtn         = null;
@@ -97,8 +98,8 @@ export default class GameScene extends Phaser.Scene {
             fontSize: '15px', color: '#ffee44', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
-        // 中央テキスト（山残り・供託）
-        this._wallTxt = this.add.text(640, 360, '', {
+        // 中央テキスト（山残り）
+        this._wallTxt = this.add.text(640, 348, '', {
             fontSize: '17px', color: '#fff', fontFamily: 'monospace', align: 'center',
         }).setOrigin(0.5);
 
@@ -170,11 +171,11 @@ export default class GameScene extends Phaser.Scene {
         }
         this._prevScores = g.players.map(p => p.score);
 
-        const kyotakuStr = g.kyotaku > 0 ? `  供託${g.kyotaku}本` : '';
-        this._wallTxt.setText(`山 ${g.wall.remaining}枚${kyotakuStr}`);
+        this._wallTxt.setText(`山 ${g.wall.remaining}枚`);
 
         this._updateDoraDisplay();
         this._updateRiichiSticks();
+        this._updateHonbaKyotakuDisplay();
         this._updateWindBadges();
         this._updateRiichiWaitHint();
     }
@@ -414,6 +415,15 @@ export default class GameScene extends Phaser.Scene {
             }
             // リーチ候補を計算
             this._riichiCandidates = this._findRiichiDiscards(p0);
+
+            // 7-B: 手牌ソートボタン
+            this._addButton(200, 662, '並替', 0x445533, () => {
+                p0.hand.sort();
+                this._selectedIdx = -1;
+                this._riichiCandidates = [];
+                this._renderHand(0);
+                this._setupHandClick(p0);
+            });
         }
 
         const hint = p0.isRiichi
@@ -1033,6 +1043,42 @@ export default class GameScene extends Phaser.Scene {
                 .setStrokeStyle(1, 0x999999);
             this._riichiStickList.push(stick);
         });
+    }
+
+    // 7-C: 本場・供託の視覚表示（テーブル中央）
+    _updateHonbaKyotakuDisplay() {
+        this._honbaKyotakuGfx.forEach(o => o.destroy());
+        this._honbaKyotakuGfx = [];
+
+        const g = this.game_;
+        const honba   = Math.min(g.honba,   8);
+        const kyotaku = Math.min(g.kyotaku, 8);
+
+        // 本場: 白い棒アイコン（5×14px）を中央付近に並べる
+        if (honba > 0) {
+            const lbl = this.add.text(593, 368, '本場:', {
+                fontSize: '11px', color: '#cccccc', fontFamily: 'monospace',
+            }).setOrigin(1, 0.5);
+            this._honbaKyotakuGfx.push(lbl);
+            for (let i = 0; i < honba; i++) {
+                const stick = this.add.rectangle(596 + i * 8, 368, 5, 13, 0xf0f0f0)
+                    .setStrokeStyle(0.5, 0xaaaaaa);
+                this._honbaKyotakuGfx.push(stick);
+            }
+        }
+
+        // 供託: 赤い小四角（8×8px）を並べる
+        if (kyotaku > 0) {
+            const lbl = this.add.text(593, 386, '供託:', {
+                fontSize: '11px', color: '#ff9999', fontFamily: 'monospace',
+            }).setOrigin(1, 0.5);
+            this._honbaKyotakuGfx.push(lbl);
+            for (let i = 0; i < kyotaku; i++) {
+                const dot = this.add.rectangle(597 + i * 10, 386, 8, 8, 0xdd2222)
+                    .setStrokeStyle(0.5, 0xff6666);
+                this._honbaKyotakuGfx.push(dot);
+            }
+        }
     }
 
     // =====================================

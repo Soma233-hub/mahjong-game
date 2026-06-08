@@ -112,14 +112,25 @@ export default class ResultScene extends Phaser.Scene {
         ).setOrigin(0.5);
 
         // 再プレイボタン
-        const btnBg  = this.add.rectangle(640, 692, 200, 50, 0x334466);
-        const btnTxt = this.add.text(640, 692, '再プレイ', {
+        const replayBg  = this.add.rectangle(490, 692, 200, 50, 0x334466);
+        const replayTxt = this.add.text(490, 692, '再プレイ', {
             fontSize: '22px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
-        btnBg.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => btnBg.setFillStyle(0x4455aa))
-            .on('pointerout',  () => btnBg.setFillStyle(0x334466))
+        replayBg.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => replayBg.setFillStyle(0x4455aa))
+            .on('pointerout',  () => replayBg.setFillStyle(0x334466))
             .on('pointerdown', () => this.scene.start('GameScene'));
+
+        // 7-D: タイトルへボタン
+        const titleBg  = this.add.rectangle(790, 692, 200, 50, 0x334433);
+        const titleTxt = this.add.text(790, 692, 'タイトルへ', {
+            fontSize: '20px', color: '#ccffcc', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        titleBg.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => titleBg.setFillStyle(0x446644))
+            .on('pointerout',  () => titleBg.setFillStyle(0x334433))
+            .on('pointerdown', () => this.scene.start('BootScene'));
     }
 }
