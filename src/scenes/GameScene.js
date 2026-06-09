@@ -38,6 +38,7 @@ export default class GameScene extends Phaser.Scene {
         this._actionButtons     = [];
         this._claimButtons      = [];
         this._riichiBtn         = null;
+        this._effectiveHintGfx  = [];
 
         this._selectedIdx           = -1;
         this._riichiCandidates      = [];
@@ -431,6 +432,9 @@ export default class GameScene extends Phaser.Scene {
             : '捨てる牌をクリック（2回目で確定）';
         this._hintTxt.setText(hint);
 
+        // 8-A: 有効牌ヒント（リーチ中は不要）
+        if (!p0.isRiichi) this._showEffectiveHints(p0);
+
         this._setupHandClick(p0);
     }
 
@@ -595,6 +599,40 @@ export default class GameScene extends Phaser.Scene {
         this._actionButtons.forEach(o => o.destroy());
         this._actionButtons = [];
         this._clearRiichiButton();
+        this._clearEffectiveHints();
+    }
+
+    // 8-A: 有効牌ヒント（ukeire）
+    _clearEffectiveHints() {
+        this._effectiveHintGfx.forEach(o => o.destroy());
+        this._effectiveHintGfx = [];
+    }
+
+    _showEffectiveHints(player) {
+        this._clearEffectiveHints();
+        if (player.hand.tileCount !== 14) return;
+
+        const tiles  = player.hand.tiles;
+        const n      = tiles.length;
+        const totalW = n * (TW + TG);
+        const startX = 640 - totalW / 2 + TW / 2;
+
+        const counts = [];
+        for (let idx = 0; idx < n; idx++) {
+            const tile = tiles.splice(idx, 1)[0];
+            counts.push(player.hand.getEffectiveTileIds().length);
+            tiles.splice(idx, 0, tile);
+        }
+
+        const maxCount = Math.max(...counts);
+        counts.forEach((count, idx) => {
+            const x     = startX + idx * (TW + TG);
+            const color = count === maxCount ? '#44ff88' : '#888888';
+            const txt   = this.add.text(x, 700, `${count}`, {
+                fontSize: '11px', color, fontFamily: 'monospace',
+            }).setOrigin(0.5);
+            this._effectiveHintGfx.push(txt);
+        });
     }
 
     _clearClaimButtons() {
