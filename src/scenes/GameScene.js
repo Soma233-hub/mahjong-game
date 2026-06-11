@@ -47,6 +47,7 @@ export default class GameScene extends Phaser.Scene {
         this._prevScores            = null;   // 4-D: スコアバーフラッシュ用
         this._p0Agari               = 0;
         this._totalRounds           = 0;
+        this._xray                  = false;  // 8-B: X線モード
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -135,6 +136,14 @@ export default class GameScene extends Phaser.Scene {
         helpBg.on('pointerover',  () => helpBg.setFillStyle(0x666600))
               .on('pointerout',   () => helpBg.setFillStyle(0x444400))
               .on('pointerdown',  () => this._toggleYakuPopup());
+
+        // 8-B: X線モードボタン（他家手牌を表/裏切替）
+        this._xrayBg = this.add.rectangle(80, 668, 70, 28, 0x443322)
+            .setDepth(5).setInteractive({ useHandCursor: true });
+        this.add.text(80, 668, 'X線', {
+            fontSize: '14px', color: '#ccffcc', fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(6);
+        this._xrayBg.on('pointerdown', () => this._toggleXray());
 
         // 観戦モードインジケーター
         if (this._allAI) {
@@ -640,6 +649,13 @@ export default class GameScene extends Phaser.Scene {
         this._claimButtons = [];
     }
 
+    // 8-B: X線モード（他家手牌の表/裏トグル）
+    _toggleXray() {
+        this._xray = !this._xray;
+        this._xrayBg.setFillStyle(this._xray ? 0x226644 : 0x443322);
+        [1, 2, 3].forEach(i => this._renderHand(i));
+    }
+
     // =====================================
     // タイル描画ヘルパー
     // =====================================
@@ -843,7 +859,7 @@ export default class GameScene extends Phaser.Scene {
         const n      = tiles.length;
         const startX = 640 - (n * (TW + TG)) / 2 + TW / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(startX + idx * (TW + TG), 72, tile, { back: true });
+            const obj = this._drawTile(startX + idx * (TW + TG), 72, tile, { back: !this._xray });
             this._handGfxList[2].push(obj);
         });
     }
@@ -854,7 +870,7 @@ export default class GameScene extends Phaser.Scene {
         // P1/P3 は縦方向に TW+TG のステップで並べる（TH+TG では13枚が720pxを超えるため）
         const startY = 360 - (n * (TW + TG)) / 2 + TH / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(1240, startY + idx * (TW + TG), tile, { back: true });
+            const obj = this._drawTile(1240, startY + idx * (TW + TG), tile, { back: !this._xray });
             this._handGfxList[1].push(obj);
         });
     }
@@ -865,7 +881,7 @@ export default class GameScene extends Phaser.Scene {
         // P1/P3 は縦方向に TW+TG のステップで並べる（TH+TG では13枚が720pxを超えるため）
         const startY = 360 - (n * (TW + TG)) / 2 + TH / 2;
         tiles.forEach((tile, idx) => {
-            const obj = this._drawTile(42, startY + idx * (TW + TG), tile, { back: true });
+            const obj = this._drawTile(42, startY + idx * (TW + TG), tile, { back: !this._xray });
             this._handGfxList[3].push(obj);
         });
     }
