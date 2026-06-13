@@ -49,6 +49,8 @@ export default class GameScene extends Phaser.Scene {
         this._p0Agari               = 0;
         this._totalRounds           = 0;
         this._xrayMode              = false;  // 8-B: X線モード
+        this._roundLog              = [];     // 8-D: 局別結果ログ
+        this._p0ScoreAtRoundStart   = this.game_.players[0].score;
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -268,7 +270,18 @@ export default class GameScene extends Phaser.Scene {
         this._showClaimButtons(options);
     }
 
-    _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
+    _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices, discarderIndex }) {
+        // 8-D: 局別結果をログに記録
+        const p0 = this.game_.players[0];
+        this._roundLog.push({
+            round:          this.game_.round,
+            result,
+            winnerIndex:    winnerIndex    ?? -1,
+            discarderIndex: discarderIndex ?? -1,
+            delta:          p0.score - this._p0ScoreAtRoundStart,
+            p0ScoreAfter:   p0.score,
+        });
+
         this._totalRounds++;
         if ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) && winnerIndex === 0) {
             this._p0Agari++;
@@ -437,7 +450,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onGameEnd({ players }) {
-        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
+        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
     }
 
     // =====================================
@@ -447,7 +460,7 @@ export default class GameScene extends Phaser.Scene {
     _onNextRound() {
         const g = this.game_;
         if (g.state === GAME_STATE.GAME_END) {
-            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
+            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
             return;
         }
         // 描画をクリア
@@ -463,6 +476,8 @@ export default class GameScene extends Phaser.Scene {
         this._hintTxt.setText('');
         // 次局開始（連荘判定は _onRoundEnd で保存済み）
         g.nextRound(this._lastDealerContinues);
+        // 8-D: 次局開始時のP0スコアを記録
+        this._p0ScoreAtRoundStart = g.players[0].score;
         // 飛び等でゲーム終了した場合は _onGameEnd で処理済みなので描画しない
         if (g.state === GAME_STATE.GAME_END) return;
         // 全プレイヤーの手牌を描画（P0が親の場合、P1-P3がまだ未描画になる問題を解消）

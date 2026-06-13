@@ -768,7 +768,7 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 | 8-A | 有効牌ヒント（14枚時に各牌の ukeire 種類数を牌下に表示） | GameScene.js | ✅ 完了 |
 | 8-B | X線モード（観戦/デバッグ用に他家手牌を表示トグル） | GameScene.js | ✅ 完了 |
 | 8-C | 和了形表示（局終了パネルに面子分解レイアウトを表示） | GameScene.js | ✅ 完了 |
-| 8-D | 連続対局サマリー（ResultScene に局ごとの勝敗ログ表示） | ResultScene.js | ⬜ |
+| 8-D | 連続対局サマリー（ResultScene に局ごとの勝敗ログ表示） | ResultScene.js | ✅ 完了 |
 
 ---
 
@@ -836,8 +836,19 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
     - 非和了時（流局/チョンボ）: 既存レイアウト維持（panelH=280）
   - `decomposeClosed` インポートを GameScene.js 先頭に追加
 
+## 土日午後セッション確認記録（2026-06-13）
+- 全テスト通過確認: 493/493 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 31)
+- **Phase UI-8 / 8-D 実装完了（連続対局サマリー）**
+  - GameScene.js: `_roundLog[]` 追加、`_p0ScoreAtRoundStart` で局開始時スコードをキャプチャ
+  - `_onRoundEnd()` でdelta計算 → roundLog に push (局名/結果/P0得点変動/残点)
+  - `_onNextRound()` で次局開始時スコード更新、ResultScene へ roundLog を渡す
+  - ResultScene.js: 「局ログ ▼」ボタン追加（x=190, y=692, 既存ボタンと同列）
+  - `_showRoundLogPopup()`: 半透明オーバーレイ + 局別表（局名/結果/得点変動/残点）
+  - `_closeRoundLogPopup()`: ×ボタン or オーバーレイ背景クリックで閉じる
+  - **Phase UI-8 全タスク完了 ✅**
+
 ## 次回作業内容
-- **現在のフォーカス**: Phase UI-8 実装中（8-D 未実装）
+- **現在のフォーカス**: Phase UI-8 全タスク完了 — 次フェーズを策定する
 - Phase UI-0 全完了後: 全4トリガーのプロンプトを Phase UI-1 内容に更新
 - 最終完成目標: Phase UI-4 完了 = ブラウザ実機テスト通過
 ## 次回作業内容（第6週残り・更新済み）
