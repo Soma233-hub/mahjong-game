@@ -5,6 +5,8 @@ export default class ResultScene extends Phaser.Scene {
         this.players      = data.players      || [];
         this._p0Agari     = data.p0Agari      ?? 0;
         this._totalRounds = data.totalRounds  ?? 0;
+        this._roundLog    = data.roundLog     ?? [];
+        this._logPopupObjs = [];
     }
 
     // localStorage から通算成績を読み込み、今局分を加算して保存。保存後の stats を返す。
@@ -111,6 +113,17 @@ export default class ResultScene extends Phaser.Scene {
             { fontSize: '12px', color: '#888899', fontFamily: 'monospace' }
         ).setOrigin(0.5);
 
+        // 8-D: 局ログボタン
+        const logBg  = this.add.rectangle(190, 692, 200, 50, 0x334455);
+        const logTxt = this.add.text(190, 692, '局ログ ▼', {
+            fontSize: '20px', color: '#aaddff', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        logBg.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => logBg.setFillStyle(0x446688))
+            .on('pointerout',  () => logBg.setFillStyle(0x334455))
+            .on('pointerdown', () => this._showRoundLogPopup());
+
         // 再プレイボタン
         const replayBg  = this.add.rectangle(490, 692, 200, 50, 0x334466);
         const replayTxt = this.add.text(490, 692, '再プレイ', {
@@ -132,5 +145,96 @@ export default class ResultScene extends Phaser.Scene {
             .on('pointerover', () => titleBg.setFillStyle(0x446644))
             .on('pointerout',  () => titleBg.setFillStyle(0x334433))
             .on('pointerdown', () => this.scene.start('BootScene'));
+    }
+
+    // 8-D: 局別結果ポップアップ表示
+    _showRoundLogPopup() {
+        this._closeRoundLogPopup();
+
+        const PW = 860, PH = 560;
+        const PX = 640, PY = 360;
+        const PL = PX - PW / 2;  // 210
+        const PT = PY - PH / 2;  // 80
+
+        const overlay = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.78).setInteractive();
+        const panel   = this.add.rectangle(PX, PY, PW, PH, 0x0d0d1e).setStrokeStyle(2, 0x556688);
+
+        const title = this.add.text(PX, PT + 28, '局ごとの結果', {
+            fontSize: '20px', color: '#ffee44', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        // 閉じるボタン
+        const closeBg  = this.add.rectangle(PL + PW - 28, PT + 24, 38, 30, 0x553333);
+        const closeTxt = this.add.text(PL + PW - 28, PT + 24, '×', {
+            fontSize: '18px', color: '#ff8888', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+        closeBg.setInteractive({ useHandCursor: true })
+            .on('pointerdown', () => this._closeRoundLogPopup());
+        overlay.on('pointerdown', () => this._closeRoundLogPopup());
+
+        // 列ヘッダー
+        const COL = [PL + 55, PL + 230, PL + 490, PL + 690, PL + 820];
+        const HDR_Y = PT + 62;
+        const headers = [['局', '#aaaaaa'], ['結果', '#aaaaaa'], ['得点変動', '#aaaaaa'], ['残点', '#aaaaaa']];
+        headers.forEach(([lbl, col], i) => {
+            this.add.text(COL[i], HDR_Y, lbl, {
+                fontSize: '13px', color: col, fontFamily: 'monospace',
+            }).setOrigin(0.5);
+        });
+
+        const gfx = this.add.graphics();
+        gfx.lineStyle(1, 0x334455);
+        gfx.lineBetween(PL + 12, HDR_Y + 14, PL + PW - 12, HDR_Y + 14);
+
+        // データ行
+        const playerNames = ['自分', '右', '対面', '左'];
+        const windChars   = ['東', '南', '西', '北'];
+        let ry = HDR_Y + 28;
+
+        const rowObjs = [];
+        for (const entry of this._roundLog) {
+            const wind   = windChars[Math.floor(entry.round / 4)] ?? '?';
+            const num    = (entry.round % 4) + 1;
+            const roundLabel = `${wind}${num}局`;
+
+            let resultLabel;
+            if (entry.result === 'tsumo') {
+                resultLabel = entry.winnerIndex === 0 ? 'ツモ和了' : `${playerNames[entry.winnerIndex]}ツモ`;
+            } else if (entry.result === 'ron') {
+                if (entry.winnerIndex === 0)      resultLabel = 'ロン和了';
+                else if (entry.discarderIndex === 0) resultLabel = `振込→${playerNames[entry.winnerIndex]}`;
+                else                              resultLabel = `${playerNames[entry.winnerIndex]}ロン`;
+            } else if (entry.result === 'ryuukyoku') {
+                resultLabel = '流局';
+            } else {
+                resultLabel = 'チョンボ';
+            }
+
+            const deltaStr = entry.delta > 0 ? `+${entry.delta}` : `${entry.delta}`;
+            const deltaCol = entry.delta > 0 ? '#88ff88' : entry.delta < 0 ? '#ff8888' : '#aaaaaa';
+            const scoreStr = `${entry.p0ScoreAfter}`;
+
+            rowObjs.push(
+                this.add.text(COL[0], ry, roundLabel, { fontSize: '14px', color: '#cccccc', fontFamily: 'monospace' }).setOrigin(0.5),
+                this.add.text(COL[1], ry, resultLabel, { fontSize: '13px', color: '#dddddd', fontFamily: 'monospace' }).setOrigin(0.5),
+                this.add.text(COL[2], ry, deltaStr,    { fontSize: '14px', color: deltaCol,  fontFamily: 'monospace' }).setOrigin(0.5),
+                this.add.text(COL[3], ry, scoreStr,    { fontSize: '13px', color: '#aabbcc', fontFamily: 'monospace' }).setOrigin(0.5),
+            );
+            ry += 25;
+        }
+
+        if (this._roundLog.length === 0) {
+            rowObjs.push(this.add.text(PX, PT + 120, '（ログなし）', {
+                fontSize: '14px', color: '#666677', fontFamily: 'monospace',
+            }).setOrigin(0.5));
+        }
+
+        this._logPopupObjs = [overlay, panel, title, closeBg, closeTxt, gfx, ...rowObjs];
+    }
+
+    // 8-D: ポップアップ閉じる
+    _closeRoundLogPopup() {
+        this._logPopupObjs.forEach(o => o.destroy());
+        this._logPopupObjs = [];
     }
 }
