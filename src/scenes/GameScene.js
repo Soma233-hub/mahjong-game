@@ -49,6 +49,7 @@ export default class GameScene extends Phaser.Scene {
         this._p0Agari               = 0;
         this._totalRounds           = 0;
         this._xrayMode              = false;  // 8-B: X線モード
+        this._roundLog              = [];     // 8-D: 局ごとのログ
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -278,6 +279,28 @@ export default class GameScene extends Phaser.Scene {
 
         const g = this.game_;
 
+        // 8-D: 局ごとのログを追記
+        {
+            const windNames  = ['東', '南', '西', '北'];
+            const roundWind  = windNames[Math.floor(g.round / 4)] ?? '東';
+            const roundNum   = (g.round % 4) + 1;
+            const honbaStr   = g.honba > 0 ? `${g.honba}本` : '';
+            const labels     = ['自分', '右', '対面', '左'];
+            const p0Delta    = this._prevScores ? g.players[0].score - this._prevScores[0] : 0;
+            let resultStr;
+            if      (result === ROUND_RESULT.TSUMO)     resultStr = `${labels[winnerIndex]} ツモ`;
+            else if (result === ROUND_RESULT.RON)        resultStr = `${labels[winnerIndex]} ロン`;
+            else if (result === ROUND_RESULT.RYUUKYOKU) resultStr = '流局';
+            else                                         resultStr = `チョンボ ${labels[winnerIndex]}`;
+            const yakuShort = (yakuResult?.yaku ?? []).slice(0, 2).map(y => y.name).join('+');
+            this._roundLog.push({
+                label: `${roundWind}${roundNum}${honbaStr}`,
+                resultStr,
+                yakuShort,
+                p0Delta,
+            });
+        }
+
         // 連荘判定: 親和了 or 流局 or チョンボは連荘
         this._lastDealerContinues =
             result === ROUND_RESULT.RYUUKYOKU ||
@@ -437,7 +460,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onGameEnd({ players }) {
-        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
+        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
     }
 
     // =====================================
@@ -447,7 +470,7 @@ export default class GameScene extends Phaser.Scene {
     _onNextRound() {
         const g = this.game_;
         if (g.state === GAME_STATE.GAME_END) {
-            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
+            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
             return;
         }
         // 描画をクリア
