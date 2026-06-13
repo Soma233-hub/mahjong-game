@@ -1,4 +1,5 @@
 import { Game, GAME_STATE, ROUND_RESULT } from '../core/Game.js';
+import { decomposeClosed } from '../logic/Yaku.js';
 
 // --- タイル描画定数 ---
 // BootScene.js の同定数と同値を保つこと（Phase 1-D で両方変更）
@@ -298,50 +299,141 @@ export default class GameScene extends Phaser.Scene {
     _showRoundEndPanel({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
         const g = this.game_;
         const playerLabels = ['自分', '右', '対面', '左'];
+        const scoresStr = g.players.map((p, i) => `${['自分','右','対面','左'][i]}: ${p.score}`).join('  ');
         let lines = [];
 
-        if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
-            const label    = result === ROUND_RESULT.TSUMO ? 'ツモ！' : 'ロン！';
-            const yakuStr  = (yakuResult?.yaku || []).map(y => y.name).join(' / ') || '（役なし）';
+        const hasWin = result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON;
+
+        if (hasWin) {
+            const label   = result === ROUND_RESULT.TSUMO ? 'ツモ！' : 'ロン！';
+            const yakuStr = (yakuResult?.yaku || []).map(y => y.name).join(' / ') || '（役なし）';
             const scoreStr = total != null ? `${han}翻${fu}符  +${total}点` : '';
-            lines = [
-                `${label}  ${playerLabels[winnerIndex]}`,
-                yakuStr,
-                scoreStr,
-            ];
+            lines = [`${label}  ${playerLabels[winnerIndex]}`, yakuStr, scoreStr, scoresStr];
         } else if (result === ROUND_RESULT.RYUUKYOKU) {
             let tenpaiStr;
             if (!tenpaiIndices || tenpaiIndices.length === 0) tenpaiStr = '全員ノーテン';
             else if (tenpaiIndices.length === 4)              tenpaiStr = '全員テンパイ';
             else tenpaiStr = `テンパイ: ${tenpaiIndices.map(i => ['自分','右','対面','左'][i]).join(' ')}`;
-            lines = ['流局', tenpaiStr];
+            lines = ['流局', tenpaiStr, '', scoresStr];
         } else if (result === ROUND_RESULT.CHOMBO) {
-            lines = [`チョンボ  ${playerLabels[winnerIndex]}`];
+            lines = [`チョンボ  ${playerLabels[winnerIndex]}`, '', scoresStr];
         }
 
-        lines.push('');
-        lines.push(g.players.map((p, i) => `${['自分','右','対面','左'][i]}: ${p.score}`).join('  '));
+        // 和了時はタイル行を追加するためパネルを縦拡張 (8-C)
+        const panelH = hasWin ? 380 : 280;
+        const textY  = hasWin ? 295 : 335;
+        const btnY   = hasWin ? 516 : 468;
 
-        // パネル (center=360, height=280 → y=[220,500])
-        const panelBg = this.add.rectangle(640, 360, 620, 280, 0x000000, 0.88)
+        const panelBg = this.add.rectangle(640, 360, 620, panelH, 0x000000, 0.88)
             .setStrokeStyle(2, 0xaaaaaa).setDepth(30);
-        const panelTxt = this.add.text(640, 335, lines.join('\n'), {
+        const panelTxt = this.add.text(640, textY, lines.join('\n'), {
             fontSize: '20px', color: '#ffffff', fontFamily: 'monospace', align: 'center',
         }).setOrigin(0.5).setDepth(31);
 
-        // 次局ボタン (パネル内 y=468)
-        const nextBg  = this.add.rectangle(640, 468, 160, 40, 0x334466).setDepth(32);
-        const nextTxt = this.add.text(640, 468, '次局へ ▶', {
+        // 8-C: 和了形タイル表示
+        const tileObjs = hasWin ? this._drawWinHand(g.players[winnerIndex], 440) : [];
+
+        // 次局ボタン
+        const nextBg  = this.add.rectangle(640, btnY, 160, 40, 0x334466).setDepth(32);
+        const nextTxt = this.add.text(640, btnY, '次局へ ▶', {
             fontSize: '17px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5).setDepth(33);
 
+        const allPanelObjs = [panelBg, panelTxt, ...tileObjs, nextBg, nextTxt];
         nextBg.setInteractive({ useHandCursor: true })
             .on('pointerover', () => nextBg.setFillStyle(0x4455aa))
             .on('pointerout',  () => nextBg.setFillStyle(0x334466))
             .on('pointerdown', () => {
-                [panelBg, panelTxt, nextBg, nextTxt].forEach(o => o.destroy());
+                allPanelObjs.forEach(o => o.destroy());
                 this._onNextRound();
             });
+    }
+
+    // 8-C: 局終了パネル用の和了形タイル描画
+    _drawWinHand(winner, y) {
+        const TW_P = 24, TH_P = 33;
+        const TILE_GAP = 2;
+        const GROUP_GAP = 8;
+
+        const tiles = winner.hand.tiles;
+        if (!tiles || tiles.length === 0) return [];
+
+        const winTile = tiles[tiles.length - 1];
+        const decomps = decomposeClosed(winner.hand);
+
+        let groups = [];
+
+        if (decomps.length > 0) {
+            const d = decomps[0];
+            if (d.type === 'chiitoi') {
+                const remaining = [...tiles];
+                for (const pairId of d.pairs) {
+                    const grp = [];
+                    for (let n = 0; n < 2; n++) {
+                        let idx = remaining.findIndex(t => t !== winTile && t.id === pairId);
+                        if (idx === -1) idx = remaining.findIndex(t => t.id === pairId);
+                        if (idx >= 0) grp.push(remaining.splice(idx, 1)[0]);
+                    }
+                    if (grp.length > 0) groups.push(grp);
+                }
+            } else if (d.type === 'normal') {
+                const remaining = [...tiles];
+                const sorted = [...d.mentsu].sort((a, b) => Math.min(...a.ids) - Math.min(...b.ids));
+                for (const m of sorted) {
+                    const grp = [];
+                    for (const id of m.ids) {
+                        let idx = remaining.findIndex(t => t !== winTile && t.id === id);
+                        if (idx === -1) idx = remaining.findIndex(t => t.id === id);
+                        if (idx >= 0) grp.push(remaining.splice(idx, 1)[0]);
+                    }
+                    if (grp.length > 0) groups.push(grp);
+                }
+                const pairGrp = [];
+                for (let n = 0; n < 2; n++) {
+                    let idx = remaining.findIndex(t => t !== winTile && t.id === d.pair);
+                    if (idx === -1) idx = remaining.findIndex(t => t.id === d.pair);
+                    if (idx >= 0) pairGrp.push(remaining.splice(idx, 1)[0]);
+                }
+                if (pairGrp.length > 0) groups.push(pairGrp);
+            } else {
+                // 国士など特殊形: 全牌を1グループ
+                groups.push([...tiles]);
+            }
+        } else {
+            groups.push([...tiles]);
+        }
+
+        // 副露牌を末尾に追加
+        for (const meld of winner.hand.melds) {
+            groups.push([...meld.tiles]);
+        }
+
+        // 合計幅を計算してx座標を中央揃え
+        const tileStep = TW_P + TILE_GAP;
+        let totalW = 0;
+        for (let gi = 0; gi < groups.length; gi++) {
+            if (gi > 0) totalW += GROUP_GAP;
+            totalW += groups[gi].length * tileStep - TILE_GAP;
+        }
+
+        let curX = 640 - totalW / 2 + TW_P / 2;
+        const objs = [];
+
+        for (const grp of groups) {
+            for (const tile of grp) {
+                const key = tile.isRed
+                    ? `tile_${tile.suit}_${tile.number}_r`
+                    : `tile_${tile.suit}_${tile.number}`;
+                const img = this.add.image(curX, y, key);
+                img.setDisplaySize(TW_P - 1, TH_P - 1).setDepth(35);
+                if (tile === winTile) img.setTint(0xffdd44);
+                objs.push(img);
+                curX += tileStep;
+            }
+            curX += GROUP_GAP;
+        }
+
+        return objs;
     }
 
     _onGameEnd({ players }) {
