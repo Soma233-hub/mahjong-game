@@ -51,6 +51,8 @@ export default class GameScene extends Phaser.Scene {
         this._xrayMode              = false;  // 8-B: X線モード
         this._roundLog              = [];     // 8-D: 局ごとログ
         this._p0PrevScore           = 25000;  // 8-D: ラウンド開始時P0点数
+        this._scoreHistory          = [25000]; // 9-D: P0点数推移
+        this._remainingPopupObjs    = [];      // 9-C: 残り牌ポップアップ
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -165,6 +167,17 @@ export default class GameScene extends Phaser.Scene {
                   [1, 2, 3].forEach(i => this._renderHand(i));
               });
 
+        // 9-C: 残り牌ポップアップボタン
+        const remBg = this.add.rectangle(1060, 692, 60, 28, 0x004444)
+            .setStrokeStyle(1, 0x448888)
+            .setInteractive({ useHandCursor: true });
+        const remTxt = this.add.text(1060, 692, '残牌', {
+            fontSize: '13px', color: '#44ffee', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+        remBg.on('pointerover',  () => remBg.setFillStyle(0x006666))
+              .on('pointerout',   () => remBg.setFillStyle(0x004444))
+              .on('pointerdown',  () => this._toggleRemainingPopup());
+
         this._prevScores = this.game_.players.map(p => p.score);
         this._updateInfoTexts();
     }
@@ -208,12 +221,18 @@ export default class GameScene extends Phaser.Scene {
             const names = waitIds.map(id => this._tileShortName(id)).join(' ');
             this._riichiWaitTxt.setColor('#ffee99');
             this._riichiWaitTxt.setText(names.length > 0 ? `待ち: ${names}` : '');
-        } else if (p0.hand.tiles.length === 13 && p0.hand.isTenpai()) {
-            // オープン手テンパイ中（他家ターン中）
-            const waitIds = p0.hand.getWaitingTileIds();
-            const names = waitIds.map(id => this._tileShortName(id)).join(' ');
-            this._riichiWaitTxt.setColor('#99ffcc');
-            this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+        } else if (p0.hand.tiles.length === 13) {
+            // 9-A: 向聴数リアルタイム表示（他家ターン中）
+            const { shanten } = p0.hand.getShantenNumber();
+            if (shanten === 0) {
+                const waitIds = p0.hand.getWaitingTileIds();
+                const names = waitIds.map(id => this._tileShortName(id)).join(' ');
+                this._riichiWaitTxt.setColor('#99ffcc');
+                this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+            } else {
+                this._riichiWaitTxt.setColor('#aaaaaa');
+                this._riichiWaitTxt.setText(`${shanten}向聴`);
+            }
         } else {
             this._riichiWaitTxt.setText('');
         }
@@ -290,6 +309,7 @@ export default class GameScene extends Phaser.Scene {
             delta,
         });
         this._p0PrevScore = g.players[0].score;
+        this._scoreHistory.push(g.players[0].score); // 9-D: 局後スコアを記録
 
         // 連荘判定: 親和了 or 流局 or チョンボは連荘
         this._lastDealerContinues =
@@ -450,7 +470,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onGameEnd({ players }) {
-        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
+        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog, scoreHistory: this._scoreHistory });
     }
 
     // =====================================
@@ -460,7 +480,7 @@ export default class GameScene extends Phaser.Scene {
     _onNextRound() {
         const g = this.game_;
         if (g.state === GAME_STATE.GAME_END) {
-            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
+            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog, scoreHistory: this._scoreHistory });
             return;
         }
         // 描画をクリア
@@ -739,18 +759,31 @@ export default class GameScene extends Phaser.Scene {
         const totalW = n * (TW + TG);
         const startX = 640 - totalW / 2 + TW / 2;
 
+        // ukeire counts
         const counts = [];
         for (let idx = 0; idx < n; idx++) {
             const tile = tiles.splice(idx, 1)[0];
             counts.push(player.hand.getEffectiveTileIds().length);
             tiles.splice(idx, 0, tile);
         }
-
         const maxCount = Math.max(...counts);
+
+        // 9-B: リーチ中の他家がいる場合は安全度で色分け
+        const riichiOpps = this.game_.players.filter((p, i) => i !== 0 && p.isRiichi);
+        const useDanger  = riichiOpps.length > 0;
+
         counts.forEach((count, idx) => {
-            const x     = startX + idx * (TW + TG);
-            const color = count === maxCount ? '#44ff88' : '#888888';
-            const txt   = this.add.text(x, 700, `${count}`, {
+            const x = startX + idx * (TW + TG);
+            let color;
+            if (useDanger) {
+                const minSafety = Math.min(...riichiOpps.map(opp => this._getSafetyScore(tiles[idx], opp)));
+                color = minSafety >= 70 ? '#44ff88'
+                      : minSafety >= 40 ? '#ffee44'
+                      : '#ff5555';
+            } else {
+                color = count === maxCount ? '#44ff88' : '#888888';
+            }
+            const txt = this.add.text(x, 700, `${count}`, {
                 fontSize: '11px', color, fontFamily: 'monospace',
             }).setOrigin(0.5);
             this._effectiveHintGfx.push(txt);
@@ -1468,5 +1501,154 @@ export default class GameScene extends Phaser.Scene {
         }
 
         this._yakuPopupObjs = objs;
+    }
+
+    // =====================================
+    // Phase UI-9: 打牌サポート深化
+    // =====================================
+
+    // 9-B: 全プレイヤーの捨て牌・副露・ドラ表示牌からtileIdの見えている枚数を返す
+    _countSeenTiles(tileId) {
+        let count = 0;
+        for (const p of this.game_.players) {
+            count += p.discards.filter(d => d.id === tileId).length;
+            for (const m of p.hand.melds) {
+                count += m.tiles.filter(t => t.id === tileId).length;
+            }
+        }
+        for (const t of (this.game_.wall?.doraIndicators ?? [])) {
+            if (t.id === tileId) count++;
+        }
+        return count;
+    }
+
+    // 9-B: リーチプレイヤーに対する牌の安全度スコア (0-100)
+    _getSafetyScore(tile, riichiPlayer) {
+        const rdStart = riichiPlayer.riichiDiscardCount >= 0
+            ? riichiPlayer.riichiDiscardCount
+            : riichiPlayer.discards.length;
+        const genbutsuIds   = new Set(riichiPlayer.discards.slice(rdStart).map(d => d.id));
+        const allDiscardIds = new Set(riichiPlayer.discards.map(d => d.id));
+        if (genbutsuIds.has(tile.id))   return 100;
+        if (allDiscardIds.has(tile.id)) return 50;
+        if (tile.isHonor()) return this._countSeenTiles(tile.id) >= 3 ? 80 : 20;
+        const id = tile.id;
+        const suitBase = Math.floor(id / 9) * 9;
+        const rank = id - suitBase;
+        const hasSujiA = rank >= 3 && genbutsuIds.has(suitBase + rank - 3);
+        const hasSujiB = rank <= 5 && genbutsuIds.has(suitBase + rank + 3);
+        if (hasSujiA && hasSujiB) return 70;
+        if (hasSujiA || hasSujiB) return 55;
+        if ((rank > 0 && this._countSeenTiles(suitBase + rank - 1) >= 4) ||
+            (rank < 8 && this._countSeenTiles(suitBase + rank + 1) >= 4)) return 65;
+        return 30;
+    }
+
+    // 9-C: 各タイルID (0-33) の残り枚数を計算（P0手牌・全捨て牌・全副露・ドラ表示牌から逆算）
+    _countRemainingTiles() {
+        const remaining = new Array(34).fill(4);
+        const sub = (tile) => {
+            if (!tile || tile.id < 0 || tile.id >= 34) return;
+            remaining[tile.id] = Math.max(0, remaining[tile.id] - 1);
+        };
+        for (const t of this.game_.players[0].hand.tiles) sub(t);
+        for (const p of this.game_.players) {
+            for (const t of p.discards) sub(t);
+            for (const m of p.hand.melds) {
+                // claimedTile は捨て牌に含まれているため除外して二重カウントを防ぐ
+                for (const t of m.tiles) {
+                    if (t !== m.claimedTile) sub(t);
+                }
+            }
+        }
+        for (const t of (this.game_.wall?.doraIndicators ?? [])) sub(t);
+        return remaining;
+    }
+
+    // 9-C: 残り牌ポップアップのトグル
+    _toggleRemainingPopup() {
+        if (this._remainingPopupObjs.length > 0) {
+            this._closeRemainingPopup();
+        } else {
+            this._showRemainingPopup();
+        }
+    }
+
+    _closeRemainingPopup() {
+        this._remainingPopupObjs.forEach(o => o.destroy());
+        this._remainingPopupObjs = [];
+    }
+
+    _showRemainingPopup() {
+        const depth = 90;
+        const PW = 820, PH = 296;
+        const PX = 640, PY = 390;
+
+        const remaining = this._countRemainingTiles();
+
+        const overlay = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.60).setDepth(depth);
+        overlay.setInteractive().on('pointerdown', () => this._closeRemainingPopup());
+
+        const panel = this.add.rectangle(PX, PY, PW, PH, 0x0d1f1f).setDepth(depth + 1)
+            .setStrokeStyle(2, 0x44aaaa);
+
+        const title = this.add.text(PX, PY - PH / 2 + 18, '残り牌', {
+            fontSize: '16px', color: '#44ffee', fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(depth + 2);
+
+        const closeBg = this.add.rectangle(PX + PW / 2 - 22, PY - PH / 2 + 18, 34, 26, 0x882222)
+            .setDepth(depth + 2).setInteractive({ useHandCursor: true });
+        const closeTxt = this.add.text(PX + PW / 2 - 22, PY - PH / 2 + 18, '×', {
+            fontSize: '14px', color: '#fff', fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(depth + 3);
+        closeBg.on('pointerover',  () => closeBg.setFillStyle(0xbb3333))
+               .on('pointerout',   () => closeBg.setFillStyle(0x882222))
+               .on('pointerdown',  () => this._closeRemainingPopup());
+
+        const objs = [overlay, panel, title, closeBg, closeTxt];
+
+        // タイルを4行（萬/筒/索/字牌）で表示
+        const TW_P = 36, TH_P = 48, GAP = 4;
+        const SUIT_OFFSETS = { man: 0, pin: 9, sou: 18, honor: 27 };
+        const rowDefs = [
+            { suit: 'man',   numbers: [1,2,3,4,5,6,7,8,9], label: '萬' },
+            { suit: 'pin',   numbers: [1,2,3,4,5,6,7,8,9], label: '筒' },
+            { suit: 'sou',   numbers: [1,2,3,4,5,6,7,8,9], label: '索' },
+            { suit: 'honor', numbers: [1,2,3,4,5,6,7],     label: '字' },
+        ];
+        const ROW_START_Y = PY - PH / 2 + 50;
+        const ROW_H = 64;
+
+        rowDefs.forEach(({ suit, numbers, label }, rowIdx) => {
+            const y = ROW_START_Y + rowIdx * ROW_H;
+            const rowW = numbers.length * (TW_P + GAP) - GAP;
+            const startX = PX - rowW / 2 + TW_P / 2;
+
+            objs.push(this.add.text(startX - TW_P / 2 - 10, y + TH_P / 2, label, {
+                fontSize: '11px', color: '#888888', fontFamily: 'monospace',
+            }).setOrigin(1, 1).setDepth(depth + 3));
+
+            numbers.forEach((num, ni) => {
+                const x = startX + ni * (TW_P + GAP);
+                const tileId = SUIT_OFFSETS[suit] + num - 1;
+                const rem    = remaining[tileId] ?? 0;
+
+                const img = this.add.image(x, y, `tile_${suit}_${num}`)
+                    .setDisplaySize(TW_P - 1, TH_P - 1)
+                    .setDepth(depth + 3)
+                    .setAlpha(rem === 0 ? 0.22 : 1.0);
+                objs.push(img);
+
+                const countColor = rem === 0 ? '#555555'
+                                 : rem === 1 ? '#ff8888'
+                                 : rem <= 2  ? '#ffcc44'
+                                 : '#aaffaa';
+                objs.push(this.add.text(x, y + TH_P / 2 + 7, `${rem}`, {
+                    fontSize: '13px', color: countColor, fontFamily: 'monospace',
+                }).setOrigin(0.5).setDepth(depth + 3));
+            });
+        });
+
+        this._remainingPopupObjs = objs;
     }
 }

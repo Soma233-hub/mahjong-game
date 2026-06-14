@@ -2,10 +2,11 @@ export default class ResultScene extends Phaser.Scene {
     constructor() { super('ResultScene'); }
 
     init(data) {
-        this.players      = data.players      || [];
-        this._p0Agari     = data.p0Agari      ?? 0;
-        this._totalRounds = data.totalRounds  ?? 0;
-        this._roundLog    = data.roundLog     ?? [];
+        this.players        = data.players      || [];
+        this._p0Agari       = data.p0Agari      ?? 0;
+        this._totalRounds   = data.totalRounds  ?? 0;
+        this._roundLog      = data.roundLog     ?? [];
+        this._scoreHistory  = data.scoreHistory ?? [25000]; // 9-D
     }
 
     // localStorage から通算成績を読み込み、今局分を加算して保存。保存後の stats を返す。
@@ -86,23 +87,23 @@ export default class ResultScene extends Phaser.Scene {
             }).setOrigin(0.5);
         });
 
-        // --- 8-D: 対局ログ（結果テーブル下〜下段セパレーターの間に表示） ---
+        // --- 8-D: 対局ログ（左半分）---
         const log = this._roundLog;
         if (log.length > 0) {
             const playerNames = ['自分', '右', '対面', '左'];
-            const maxShow = 12;
+            const maxShow = 8;
             const shown = log.slice(Math.max(0, log.length - maxShow));
 
-            this.add.text(640, 522, '対局ログ', {
+            this.add.text(220, 522, '対局ログ', {
                 fontSize: '12px', color: '#666688', fontFamily: 'monospace',
             }).setOrigin(0.5);
 
-            const colXs = [215, 640, 1065];
+            const colXs = [108, 348];
             const rowYs = [538, 554, 570, 586];
 
             shown.forEach((entry, i) => {
-                const col = i % 3;
-                const row = Math.floor(i / 3);
+                const col = i % 2;
+                const row = Math.floor(i / 2);
                 if (row >= rowYs.length) return;
                 const x = colXs[col];
                 const y = rowYs[row];
@@ -119,13 +120,62 @@ export default class ResultScene extends Phaser.Scene {
 
                 this.add.text(x, y, text, {
                     fontSize: '12px', color, fontFamily: 'monospace',
-                }).setOrigin(0.5);
+                }).setOrigin(0, 0.5);
             });
 
             if (log.length > maxShow) {
-                this.add.text(640, 600, `（全${log.length}局 直近${maxShow}局を表示）`, {
+                this.add.text(220, 598, `（全${log.length}局 直近${maxShow}局を表示）`, {
                     fontSize: '10px', color: '#555566', fontFamily: 'monospace',
                 }).setOrigin(0.5);
+            }
+        }
+
+        // --- 9-D: 得点推移チャート（右半分）---
+        {
+            const hist = this._scoreHistory;
+            if (hist.length >= 2) {
+                const CX = 860, CY = 560, CW = 400, CH = 60;
+                const chartGfx = this.add.graphics();
+
+                this.add.text(CX, CY - CH / 2 - 8, '得点推移', {
+                    fontSize: '11px', color: '#666688', fontFamily: 'monospace',
+                }).setOrigin(0.5);
+
+                // チャート背景
+                chartGfx.fillStyle(0x0a1a1a, 0.5);
+                chartGfx.fillRect(CX - CW / 2, CY - CH / 2, CW, CH);
+
+                // 25000基準線
+                chartGfx.lineStyle(1, 0x446644, 0.8);
+                chartGfx.lineBetween(CX - CW / 2, CY, CX + CW / 2, CY);
+
+                // 点数→Y座標変換（0pt=下端, 50000pt=上端）
+                const toY = (score) => CY + CH / 2 - (score / 50000) * CH;
+
+                const n = hist.length;
+                const xStep = n > 1 ? CW / (n - 1) : CW;
+                const toX   = (i) => (CX - CW / 2) + i * xStep;
+
+                // 折れ線
+                for (let i = 1; i < n; i++) {
+                    const col = hist[i] >= 25000 ? 0x44ff88 : 0xff5555;
+                    chartGfx.lineStyle(2, col, 1);
+                    chartGfx.lineBetween(toX(i - 1), toY(hist[i - 1]), toX(i), toY(hist[i]));
+                }
+
+                // 各ラウンド点（小丸）
+                for (let i = 0; i < n; i++) {
+                    const col = hist[i] >= 25000 ? 0x44ff88 : 0xff5555;
+                    chartGfx.fillStyle(col, 1);
+                    chartGfx.fillCircle(toX(i), toY(hist[i]), 3);
+                }
+
+                // 最終スコアラベル
+                const lastScore = hist[n - 1];
+                const scoreCol  = lastScore >= 25000 ? '#44ff88' : '#ff5555';
+                this.add.text(CX + CW / 2 + 6, toY(lastScore), `${lastScore}`, {
+                    fontSize: '10px', color: scoreCol, fontFamily: 'monospace',
+                }).setOrigin(0, 0.5);
             }
         }
 
