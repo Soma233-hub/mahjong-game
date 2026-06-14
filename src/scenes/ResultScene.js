@@ -5,6 +5,7 @@ export default class ResultScene extends Phaser.Scene {
         this.players      = data.players      || [];
         this._p0Agari     = data.p0Agari      ?? 0;
         this._totalRounds = data.totalRounds  ?? 0;
+        this._roundLog    = data.roundLog     ?? [];
     }
 
     // localStorage から通算成績を読み込み、今局分を加算して保存。保存後の stats を返す。
@@ -84,6 +85,49 @@ export default class ResultScene extends Phaser.Scene {
                 fontSize: '26px', color: finalCol, fontFamily: 'monospace',
             }).setOrigin(0.5);
         });
+
+        // --- 8-D: 対局ログ（結果テーブル下〜下段セパレーターの間に表示） ---
+        const log = this._roundLog;
+        if (log.length > 0) {
+            const playerNames = ['自分', '右', '対面', '左'];
+            const maxShow = 12;
+            const shown = log.slice(Math.max(0, log.length - maxShow));
+
+            this.add.text(640, 522, '対局ログ', {
+                fontSize: '12px', color: '#666688', fontFamily: 'monospace',
+            }).setOrigin(0.5);
+
+            const colXs = [215, 640, 1065];
+            const rowYs = [538, 554, 570, 586];
+
+            shown.forEach((entry, i) => {
+                const col = i % 3;
+                const row = Math.floor(i / 3);
+                if (row >= rowYs.length) return;
+                const x = colXs[col];
+                const y = rowYs[row];
+
+                const deltaStr = entry.delta > 0 ? `+${entry.delta}` : entry.delta < 0 ? `${entry.delta}` : '±0';
+                const color = entry.delta > 0 ? '#88ff88' : entry.delta < 0 ? '#ff8888' : '#888888';
+
+                let text;
+                if (entry.winnerIndex !== null) {
+                    text = `${entry.roundNum}局 ${entry.resultLabel}(${playerNames[entry.winnerIndex]}) ${deltaStr}`;
+                } else {
+                    text = `${entry.roundNum}局 ${entry.resultLabel} ${deltaStr}`;
+                }
+
+                this.add.text(x, y, text, {
+                    fontSize: '12px', color, fontFamily: 'monospace',
+                }).setOrigin(0.5);
+            });
+
+            if (log.length > maxShow) {
+                this.add.text(640, 600, `（全${log.length}局 直近${maxShow}局を表示）`, {
+                    fontSize: '10px', color: '#555566', fontFamily: 'monospace',
+                }).setOrigin(0.5);
+            }
+        }
 
         // 罫線（下）
         gfx.lineBetween(100, 610, 1180, 610);

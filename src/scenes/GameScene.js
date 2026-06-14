@@ -49,6 +49,8 @@ export default class GameScene extends Phaser.Scene {
         this._p0Agari               = 0;
         this._totalRounds           = 0;
         this._xrayMode              = false;  // 8-B: X線モード
+        this._roundLog              = [];     // 8-D: 局ごとログ
+        this._p0PrevScore           = 25000;  // 8-D: ラウンド開始時P0点数
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -278,6 +280,17 @@ export default class GameScene extends Phaser.Scene {
 
         const g = this.game_;
 
+        // 8-D: 局ごとのログ記録
+        const delta = g.players[0].score - this._p0PrevScore;
+        const resultLabels = { tsumo: 'ツモ', ron: 'ロン', ryuukyoku: '流局', chombo: 'チョンボ' };
+        this._roundLog.push({
+            roundNum: this._totalRounds,
+            resultLabel: resultLabels[result] ?? result,
+            winnerIndex: (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) ? winnerIndex : null,
+            delta,
+        });
+        this._p0PrevScore = g.players[0].score;
+
         // 連荘判定: 親和了 or 流局 or チョンボは連荘
         this._lastDealerContinues =
             result === ROUND_RESULT.RYUUKYOKU ||
@@ -437,7 +450,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     _onGameEnd({ players }) {
-        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
+        this.scene.start('ResultScene', { players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
     }
 
     // =====================================
@@ -447,7 +460,7 @@ export default class GameScene extends Phaser.Scene {
     _onNextRound() {
         const g = this.game_;
         if (g.state === GAME_STATE.GAME_END) {
-            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds });
+            this.scene.start('ResultScene', { players: g.players, p0Agari: this._p0Agari, totalRounds: this._totalRounds, roundLog: this._roundLog });
             return;
         }
         // 描画をクリア
