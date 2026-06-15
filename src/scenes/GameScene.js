@@ -187,7 +187,9 @@ export default class GameScene extends Phaser.Scene {
         const windNames = ['東', '南', '西', '北'];
         const roundWind = windNames[Math.floor(g.round / 4)] ?? '東';
         const roundNum  = (g.round % 4) + 1;
-        this._roundTxt.setText(`${roundWind}${roundNum}局 ${g.honba}本場`);
+        // 10-C: 残り局数表示
+        const remaining = (g._maxRounds ?? 4) - g.round;
+        this._roundTxt.setText(`${roundWind}${roundNum}局 ${g.honba}本場 残${remaining}局`);
 
         const seatWinds = windNames;
         const labels    = ['自分', '右', '対面', '左'];
@@ -227,8 +229,17 @@ export default class GameScene extends Phaser.Scene {
             if (shanten === 0) {
                 const waitIds = p0.hand.getWaitingTileIds();
                 const names = waitIds.map(id => this._tileShortName(id)).join(' ');
-                this._riichiWaitTxt.setColor('#99ffcc');
-                this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+                // 10-A: フリテン警告表示
+                if (p0.isTemporaryFuriten) {
+                    this._riichiWaitTxt.setColor('#ffaa44');
+                    this._riichiWaitTxt.setText(names.length > 0 ? `一時フリテン: ${names}` : '一時フリテン');
+                } else if (p0.isFuriten) {
+                    this._riichiWaitTxt.setColor('#ff4444');
+                    this._riichiWaitTxt.setText(names.length > 0 ? `フリテン: ${names}` : 'フリテン');
+                } else {
+                    this._riichiWaitTxt.setColor('#99ffcc');
+                    this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+                }
             } else {
                 this._riichiWaitTxt.setColor('#aaaaaa');
                 this._riichiWaitTxt.setText(`${shanten}向聴`);
@@ -289,7 +300,7 @@ export default class GameScene extends Phaser.Scene {
         this._showClaimButtons(options);
     }
 
-    _onRoundEnd({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
+    _onRoundEnd({ result, winnerIndex, discarderIndex, yakuResult, han, fu, total, tenpaiIndices }) {
         this._totalRounds++;
         if ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) && winnerIndex === 0) {
             this._p0Agari++;
@@ -318,7 +329,7 @@ export default class GameScene extends Phaser.Scene {
             ((result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) &&
              winnerIndex === g.dealerIndex);
 
-        const panelData = { result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices };
+        const panelData = { result, winnerIndex, discarderIndex, yakuResult, han, fu, total, tenpaiIndices };
 
         if (result === ROUND_RESULT.TSUMO || result === ROUND_RESULT.RON) {
             this._animateScoreFloat(winnerIndex, total);   // 4-B: 点数フロート
@@ -329,7 +340,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    _showRoundEndPanel({ result, winnerIndex, yakuResult, han, fu, total, tenpaiIndices }) {
+    _showRoundEndPanel({ result, winnerIndex, discarderIndex, yakuResult, han, fu, total, tenpaiIndices }) {
         const g = this.game_;
         const playerLabels = ['自分', '右', '対面', '左'];
         const scoresStr = g.players.map((p, i) => `${['自分','右','対面','左'][i]}: ${p.score}`).join('  ');
@@ -341,7 +352,10 @@ export default class GameScene extends Phaser.Scene {
             const label   = result === ROUND_RESULT.TSUMO ? 'ツモ！' : 'ロン！';
             const yakuStr = (yakuResult?.yaku || []).map(y => y.name).join(' / ') || '（役なし）';
             const scoreStr = total != null ? `${han}翻${fu}符  +${total}点` : '';
-            lines = [`${label}  ${playerLabels[winnerIndex]}`, yakuStr, scoreStr, scoresStr];
+            // 10-D: ロン時に放銃者表示
+            const discardStr = (result === ROUND_RESULT.RON && discarderIndex != null)
+                ? `（${playerLabels[discarderIndex]}からのロン）` : '';
+            lines = [`${label}  ${playerLabels[winnerIndex]}${discardStr}`, yakuStr, scoreStr, scoresStr];
         } else if (result === ROUND_RESULT.RYUUKYOKU) {
             let tenpaiStr;
             if (!tenpaiIndices || tenpaiIndices.length === 0) tenpaiStr = '全員ノーテン';
@@ -373,13 +387,40 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(33);
 
         const allPanelObjs = [panelBg, panelTxt, ...tileObjs, nextBg, nextTxt];
+
+        const advance = () => {
+            if (autoTimer) autoTimer.remove();
+            allPanelObjs.forEach(o => o.destroy());
+            this._onNextRound();
+        };
+
         nextBg.setInteractive({ useHandCursor: true })
             .on('pointerover', () => nextBg.setFillStyle(0x4455aa))
             .on('pointerout',  () => nextBg.setFillStyle(0x334466))
-            .on('pointerdown', () => {
-                allPanelObjs.forEach(o => o.destroy());
-                this._onNextRound();
+            .on('pointerdown', advance);
+
+        // 10-B: 観戦モード自動進行（3秒カウントダウン）
+        let autoTimer = null;
+        if (this._allAI) {
+            let countdown = 3;
+            const cdTxt = this.add.text(640, btnY + 28, `${countdown}秒後に自動進行`, {
+                fontSize: '13px', color: '#888888', fontFamily: 'monospace',
+            }).setOrigin(0.5).setDepth(33);
+            allPanelObjs.push(cdTxt);
+
+            autoTimer = this.time.addEvent({
+                delay: 1000,
+                repeat: 2,
+                callback: () => {
+                    countdown--;
+                    if (countdown > 0) {
+                        cdTxt.setText(`${countdown}秒後に自動進行`);
+                    } else {
+                        advance();
+                    }
+                },
             });
+        }
     }
 
     // 8-C: 局終了パネル用の和了形タイル描画
