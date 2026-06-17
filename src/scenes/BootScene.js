@@ -56,7 +56,7 @@ export default class BootScene extends Phaser.Scene {
 
         // ゲーム設定の初期値をレジストリに登録
         if (!this.registry.has('gameSettings')) {
-            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3, gameType: 'tonpu', allAI: false });
+            this.registry.set('gameSettings', { useIppatsu: true, useUraDora: true, umaRule: '10-20', aiLevel: 3, gameType: 'tonpu', allAI: false, aiSpeed: 'normal' });
         } else {
             // 古いセーブデータに存在しないキーを補完
             const s = this.registry.get('gameSettings');
@@ -64,6 +64,7 @@ export default class BootScene extends Phaser.Scene {
             if (patched.aiLevel   === undefined) patched.aiLevel   = 3;
             if (patched.gameType  === undefined) patched.gameType  = 'tonpu';
             if (patched.allAI     === undefined) patched.allAI     = false;
+            if (patched.aiSpeed   === undefined) patched.aiSpeed   = 'normal';
             this.registry.set('gameSettings', patched);
         }
 
@@ -130,86 +131,64 @@ export default class BootScene extends Phaser.Scene {
     }
 
     _buildSettingsRow() {
-        // 5列（x: 160, 400, 640, 880, 1120）
-        const items = [
-            {
-                label: '一発',
-                key: 'useIppatsu',
-                x: 160,
-                values: [true, false],
-                labels: ['あり', 'なし'],
-            },
-            {
-                label: '裏ドラ',
-                key: 'useUraDora',
-                x: 400,
-                values: [true, false],
-                labels: ['あり', 'なし'],
-            },
-            {
-                label: 'ウマ',
-                key: 'umaRule',
-                x: 640,
-                values: ['10-20', 'none'],
-                labels: ['10-20', 'なし'],
-            },
-            {
-                label: '戦型',
-                key: 'gameType',
-                x: 880,
-                values: ['tonpu', 'hanchan'],
-                labels: ['東風戦', '半荘'],
-            },
-            {
-                label: 'AIレベル',
-                key: 'aiLevel',
-                x: 1120,
-                values: [3, 1],
-                labels: ['標準', '簡単'],
-            },
+        // 第1行: 5列（x: 160, 400, 640, 880, 1120）
+        const row1 = [
+            { label: '一発',    key: 'useIppatsu', x: 160,  values: [true, false],           labels: ['あり', 'なし'] },
+            { label: '裏ドラ',  key: 'useUraDora', x: 400,  values: [true, false],           labels: ['あり', 'なし'] },
+            { label: 'ウマ',    key: 'umaRule',    x: 640,  values: ['10-20', 'none'],       labels: ['10-20', 'なし'] },
+            { label: '戦型',    key: 'gameType',   x: 880,  values: ['tonpu', 'hanchan'],    labels: ['東風戦', '半荘'] },
+            { label: 'AIレベル',key: 'aiLevel',    x: 1120, values: [3, 1],                  labels: ['標準', '簡単'] },
+        ];
+        // 第2行: 速度設定
+        const row2 = [
+            { label: 'AI速度',  key: 'aiSpeed',    x: 640,  values: ['slow', 'normal', 'fast'], labels: ['遅い', '普通', '速い'] },
         ];
 
-        items.forEach(({ label, key, x, values, labels }) => {
-            // ラベル
-            this.add.text(x, 260, label, {
-                fontSize: '18px', color: '#ccddee', fontFamily: 'monospace',
-            }).setOrigin(0.5);
+        const renderRow = (items, yLabel, yBtn) => {
+            items.forEach(({ label, key, x, values, labels }) => {
+                this.add.text(x, yLabel, label, {
+                    fontSize: '18px', color: '#ccddee', fontFamily: 'monospace',
+                }).setOrigin(0.5);
 
-            // 現在値のインデックス
-            const getIdx = () => {
-                const cur = this.registry.get('gameSettings')[key];
-                return values.indexOf(cur) === -1 ? 0 : values.indexOf(cur);
-            };
+                const getIdx = () => {
+                    const cur = this.registry.get('gameSettings')[key];
+                    return values.indexOf(cur) === -1 ? 0 : values.indexOf(cur);
+                };
 
-            const btnColors = { on: 0x2255aa, off: 0x443322 };
-            const isOn = () => getIdx() === 0;
+                const btnColors = { on: 0x2255aa, off: 0x443322 };
+                const isOn = () => getIdx() === 0;
 
-            const bg = this.add.rectangle(x, 310, 130, 42, isOn() ? btnColors.on : btnColors.off)
-                .setInteractive({ useHandCursor: true })
-                .setStrokeStyle(1, 0x667799);
-            const txt = this.add.text(x, 310, labels[getIdx()], {
-                fontSize: '20px', color: '#ffffff', fontFamily: 'monospace',
-            }).setOrigin(0.5);
+                const bg = this.add.rectangle(x, yBtn, 130, 42, isOn() ? btnColors.on : btnColors.off)
+                    .setInteractive({ useHandCursor: true })
+                    .setStrokeStyle(1, 0x667799);
+                const txt = this.add.text(x, yBtn, labels[getIdx()], {
+                    fontSize: '20px', color: '#ffffff', fontFamily: 'monospace',
+                }).setOrigin(0.5);
 
-            bg.on('pointerover', () => bg.setFillStyle(0x3366bb))
-              .on('pointerout',  () => bg.setFillStyle(isOn() ? btnColors.on : btnColors.off))
-              .on('pointerdown', () => {
-                  const s = { ...this.registry.get('gameSettings') };
-                  const nextIdx = (getIdx() + 1) % values.length;
-                  s[key] = values[nextIdx];
-                  this.registry.set('gameSettings', s);
-                  const on = nextIdx === 0;
-                  txt.setText(labels[nextIdx]);
-                  bg.setFillStyle(on ? btnColors.on : btnColors.off);
-              });
+                bg.on('pointerover', () => bg.setFillStyle(0x3366bb))
+                  .on('pointerout',  () => bg.setFillStyle(isOn() ? btnColors.on : btnColors.off))
+                  .on('pointerdown', () => {
+                      const s = { ...this.registry.get('gameSettings') };
+                      const nextIdx = (getIdx() + 1) % values.length;
+                      s[key] = values[nextIdx];
+                      this.registry.set('gameSettings', s);
+                      const on = nextIdx === 0;
+                      txt.setText(labels[nextIdx]);
+                      bg.setFillStyle(on ? btnColors.on : btnColors.off);
+                  });
 
-            this._settingToggles[key] = { bg, txt };
-        });
+                this._settingToggles[key] = { bg, txt };
+            });
+        };
+
+        renderRow(row1, 260, 310);
+        renderRow(row2, 360, 410);
 
         // 罫線
         const gfx = this.add.graphics();
         gfx.lineStyle(1, 0x335533, 0.6);
         gfx.lineBetween(110, 340, 1170, 340);
+        gfx.lineBetween(110, 440, 1170, 440);
     }
 
     // ============================================================

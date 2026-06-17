@@ -21,12 +21,14 @@ export default class GameScene extends Phaser.Scene {
     create() {
         const settings = this.registry.get('gameSettings') ?? {};
         this._allAI   = settings.allAI ?? false;
+        const _aiSpeedMap = { slow: 1000, normal: 350, fast: 50 };
         this.game_ = new Game({
             useIppatsu: settings.useIppatsu ?? true,
             useUraDora: settings.useUraDora ?? true,
             aiLevel:    settings.aiLevel    ?? 3,
             gameType:   settings.gameType   ?? 'tonpu',
             allAI:      this._allAI,
+            aiDelay:    _aiSpeedMap[settings.aiSpeed ?? 'normal'] ?? 350,
         });
         this._umaRule = settings.umaRule ?? '10-20';
 
@@ -216,19 +218,29 @@ export default class GameScene extends Phaser.Scene {
 
     _updateRiichiWaitHint() {
         const p0 = this.game_.players[0];
+        const isFuriten = p0.isFuriten || p0.isTemporaryFuriten;
         if (p0.isRiichi) {
             const waitIds = p0.hand.getWaitingTileIds();
             const names = waitIds.map(id => this._tileShortName(id)).join(' ');
-            this._riichiWaitTxt.setColor('#ffee99');
-            this._riichiWaitTxt.setText(names.length > 0 ? `待ち: ${names}` : '');
+            if (isFuriten) {
+                this._riichiWaitTxt.setColor('#ff4444');
+                this._riichiWaitTxt.setText(names.length > 0 ? `フリテン(${names})` : 'フリテン');
+            } else {
+                this._riichiWaitTxt.setColor('#ffee99');
+                this._riichiWaitTxt.setText(names.length > 0 ? `待ち: ${names}` : '');
+            }
         } else if (p0.hand.tiles.length === 13) {
-            // 9-A: 向聴数リアルタイム表示（他家ターン中）
             const { shanten } = p0.hand.getShantenNumber();
             if (shanten === 0) {
                 const waitIds = p0.hand.getWaitingTileIds();
                 const names = waitIds.map(id => this._tileShortName(id)).join(' ');
-                this._riichiWaitTxt.setColor('#99ffcc');
-                this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+                if (isFuriten) {
+                    this._riichiWaitTxt.setColor('#ff4444');
+                    this._riichiWaitTxt.setText(names.length > 0 ? `フリテン(${names})` : 'フリテン');
+                } else {
+                    this._riichiWaitTxt.setColor('#99ffcc');
+                    this._riichiWaitTxt.setText(names.length > 0 ? `テンパイ: ${names}` : '');
+                }
             } else {
                 this._riichiWaitTxt.setColor('#aaaaaa');
                 this._riichiWaitTxt.setText(`${shanten}向聴`);

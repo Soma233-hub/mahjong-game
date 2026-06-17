@@ -46,6 +46,7 @@ export class Game {
         this._useUraDora  = options.useUraDora ?? true;
         this._gameType    = options.gameType ?? 'tonpu';
         this._maxRounds   = this._gameType === 'hanchan' ? 8 : 4;
+        this.aiDelay      = options.aiDelay ?? 0;
 
         this.state            = GAME_STATE.INIT;
         this.round            = 0;
@@ -151,7 +152,11 @@ export class Game {
         this.emit('draw', { playerIndex: this.currentIndex, tile });
 
         if (!player.isHuman && player.ai) {
-            this._processAIAction(player);
+            if (this.aiDelay > 0) {
+                setTimeout(() => this._processAIAction(player), this.aiDelay);
+            } else {
+                this._processAIAction(player);
+            }
         }
     }
 
@@ -196,7 +201,11 @@ export class Game {
         }
 
         if (!player.isHuman && player.ai) {
-            this._processAIAction(player);
+            if (this.aiDelay > 0) {
+                setTimeout(() => this._processAIAction(player), this.aiDelay);
+            } else {
+                this._processAIAction(player);
+            }
         }
     }
 
