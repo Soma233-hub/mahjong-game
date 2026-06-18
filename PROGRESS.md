@@ -897,8 +897,23 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
       - `gameSettings.aiSpeed` フィールド追加・既存セーブデータ互換補完
     - GameScene.js: `settings.aiSpeed` を `speedMap` で変換し `new Game({ aiDelay })` に渡す
 
+## 平日夜セッション確認記録（2026-06-18）
+- 全テスト通過確認: 493/493 ✅ (19 + 26 + 52 + 134 + 89 + 5 + 137 + 31)
+- **Phase UI-10 / 10-C・10-D 実装完了（Phase UI-10 全タスク完了）**
+  - 【10-C】見逃し通知
+    - `_onDiscard` に `tile` 引数追加（Game.js から既に emit されていた）
+    - 他家捨て牌がP0待ち牌と一致した場合に「ロン可！」フラッシュ表示
+    - フリテン状態 (`isFuriten` / `isTemporaryFuriten`) は除外、観戦モードは非表示
+    - `_showMissNotice()`: alpha 0→1 (120ms) → hold 700ms → fade out (600ms)
+    - `_clearMissNotice()`: タイマー途中でも即消去
+  - 【10-D】音量スライダー
+    - `soundEnabled`（boolean）→ `soundVolume`（0〜100）に移行（旧データ自動変換）
+    - BootScene: ON/OFF トグル → ◀/▶ ボタン + バーグラフ（10段階 × 10%）
+    - GameScene `_scheduleNote()`: `soundVolume/100` でゲイン比例スケーリング
+  - **Phase UI-10 全タスク完了 ✅**
+
 ## 次回作業内容
-- **現在のフォーカス**: Phase UI-10 実装中（10-C・10-D 残り）
+- **現在のフォーカス**: Phase UI-10 完了 → 次フェーズ策定
 - Phase UI-0 全完了後: 全4トリガーのプロンプトを Phase UI-1 内容に更新
 - 最終完成目標: Phase UI-4 完了 = ブラウザ実機テスト通過
 ---
@@ -910,8 +925,8 @@ Phase UI-0 完了後、トリガープロンプトを Phase UI-1 内容に切り
 |------|------|------------|------|
 | 10-A | フリテン状態の明示警告（テンパイ中フリテン時に赤字表示） | GameScene.js | ✅ 完了 |
 | 10-B | AI速度設定（BootScene設定UIに遅い/普通/速いトグル追加） | BootScene.js, Game.js, GameScene.js | ✅ 完了 |
-| 10-C | 見逃し通知（P0テンパイ中に他家が待ち牌を捨てた時の視覚フィードバック） | GameScene.js | ⬜ 未着手 |
-| 10-D | 音量スライダー（現在ON/OFFのみ → 0〜100%の数値制御） | BootScene.js, GameScene.js | ⬜ 未着手 |
+| 10-C | 見逃し通知（P0テンパイ中に他家が待ち牌を捨てた時の視覚フィードバック） | GameScene.js | ✅ 完了 |
+| 10-D | 音量スライダー（現在ON/OFFのみ → 0〜100%の数値制御） | BootScene.js, GameScene.js | ✅ 完了 |
 
 ---
 
