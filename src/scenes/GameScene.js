@@ -55,6 +55,7 @@ export default class GameScene extends Phaser.Scene {
         this._p0PrevScore           = 25000;  // 8-D: ラウンド開始時P0点数
         this._scoreHistory          = [25000]; // 9-D: P0点数推移
         this._remainingPopupObjs    = [];      // 9-C: 残り牌ポップアップ
+        this._missNoticeObjs        = [];      // 10-C: 見逃し通知
 
         this._bindGameEvents();
         this._buildStaticUI();
@@ -275,7 +276,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    _onDiscard({ playerIndex }) {
+    _onDiscard({ playerIndex, tile }) {
         this._renderHand(playerIndex);
         this._renderDiscards(playerIndex);
         this._updateInfoTexts();
@@ -284,6 +285,18 @@ export default class GameScene extends Phaser.Scene {
         if (playerIndex === 0 && this._lastDiscardPos) {
             this._animateDiscardP0();
             this._lastDiscardPos = null;
+        }
+
+        // 10-C: 見逃し通知 — 他家の捨て牌がP0の待ち牌と一致する場合にフラッシュ表示
+        if (playerIndex !== 0 && !this._allAI && tile) {
+            const p0 = this.game_.players[0];
+            if (!p0.isFuriten && !p0.isTemporaryFuriten) {
+                const isTenpai = p0.isRiichi || (p0.hand.tiles.length === 13 && p0.hand.isTenpai());
+                if (isTenpai) {
+                    const waitIds = p0.hand.getWaitingTileIds();
+                    if (waitIds.includes(tile.id)) this._showMissNotice();
+                }
+            }
         }
     }
 
@@ -1187,7 +1200,8 @@ export default class GameScene extends Phaser.Scene {
     // startOffset(秒) で遅延可能。freqEnd を指定すると線形スイープになる。
     _scheduleNote(freq, duration, startOffset = 0, type = 'square', vol = 0.15, freqEnd = null) {
         const ctx = this.registry.get('audioCtx');
-        if (!ctx || !this.registry.get('soundEnabled')) return;
+        const soundVolume = this.registry.get('soundVolume') ?? 80;
+        if (!ctx || soundVolume === 0) return;
         if (ctx.state === 'suspended') ctx.resume();
         const osc = ctx.createOscillator();
         const g   = ctx.createGain();
@@ -1197,7 +1211,8 @@ export default class GameScene extends Phaser.Scene {
         const t = ctx.currentTime + startOffset;
         osc.frequency.setValueAtTime(freq, t);
         if (freqEnd != null) osc.frequency.linearRampToValueAtTime(freqEnd, t + duration);
-        g.gain.setValueAtTime(vol, t);
+        const scaledVol = vol * (soundVolume / 100);
+        g.gain.setValueAtTime(scaledVol, t);
         g.gain.exponentialRampToValueAtTime(0.001, t + duration);
         osc.start(t);
         osc.stop(t + duration);
@@ -1222,6 +1237,40 @@ export default class GameScene extends Phaser.Scene {
     _playSfxWin() {
         [523, 659, 784, 1047].forEach((f, i) =>
             this._scheduleNote(f, 0.30, i * 0.10, 'triangle', 0.20));
+    }
+
+    // =====================================
+    // 10-C: 見逃し通知
+    // =====================================
+
+    _clearMissNotice() {
+        this._missNoticeObjs.forEach(o => o.destroy());
+        this._missNoticeObjs = [];
+    }
+
+    // 待ち牌を他家が捨てた時に「ロン可！」フラッシュを表示する（約1.5秒で自動消滅）。
+    _showMissNotice() {
+        this._clearMissNotice();
+        const txt = this.add.text(640, 580, 'ロン可！', {
+            fontSize: '30px', color: '#ff4444', fontFamily: 'monospace',
+            backgroundColor: '#440000', padding: { x: 14, y: 7 },
+        }).setOrigin(0.5).setDepth(22).setAlpha(0);
+        this._missNoticeObjs.push(txt);
+
+        this.tweens.add({
+            targets: txt,
+            alpha: 1,
+            duration: 120,
+            onComplete: () => {
+                this.tweens.add({
+                    targets: txt,
+                    alpha: 0,
+                    duration: 600,
+                    delay: 700,
+                    onComplete: () => this._clearMissNotice(),
+                });
+            },
+        });
     }
 
     // =====================================

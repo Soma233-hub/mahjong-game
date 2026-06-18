@@ -41,7 +41,14 @@ export default class BootScene extends Phaser.Scene {
         } catch (_) {
             this.registry.set('audioCtx', null);
         }
-        this.registry.set('soundEnabled', true);
+        // 既存セッションに soundEnabled が残っている場合は soundVolume に変換
+        if (this.registry.has('soundEnabled')) {
+            const prev = this.registry.get('soundEnabled');
+            this.registry.set('soundVolume', prev ? 80 : 0);
+            this.registry.remove('soundEnabled');
+        } else if (!this.registry.has('soundVolume')) {
+            this.registry.set('soundVolume', 80);
+        }
     }
 
     // ============================================================
@@ -76,25 +83,58 @@ export default class BootScene extends Phaser.Scene {
         this._settingToggles = {};
         this._buildSettingsRow();
 
-        // 音量トグルボタン
-        const soundBg = this.add.rectangle(640, 470, 180, 48, 0x334466)
-            .setInteractive({ useHandCursor: true })
-            .setStrokeStyle(1, 0x667799);
-        const soundTxt = this.add.text(640, 470, '音量: ON', {
+        // 10-D: 音量スライダー（0〜100 を10刻みで調整）
+        this.add.text(640, 462, '音量', {
+            fontSize: '16px', color: '#aabbcc', fontFamily: 'monospace',
+        }).setOrigin(0.5);
+
+        const getVol = () => this.registry.get('soundVolume') ?? 80;
+        const setVol = v => this.registry.set('soundVolume', v);
+
+        const minusBg = this.add.rectangle(498, 485, 44, 36, 0x334466)
+            .setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x667799);
+        this.add.text(498, 485, '◀', { fontSize: '18px', color: '#ffffff', fontFamily: 'monospace' }).setOrigin(0.5);
+
+        const plusBg = this.add.rectangle(782, 485, 44, 36, 0x334466)
+            .setInteractive({ useHandCursor: true }).setStrokeStyle(1, 0x667799);
+        this.add.text(782, 485, '▶', { fontSize: '18px', color: '#ffffff', fontFamily: 'monospace' }).setOrigin(0.5);
+
+        const volTxt = this.add.text(640, 485, `${getVol()}%`, {
             fontSize: '22px', color: '#ffffff', fontFamily: 'monospace',
         }).setOrigin(0.5);
 
-        soundBg
-            .on('pointerover', () => soundBg.setFillStyle(0x445577))
-            .on('pointerout',  () => {
-                const en = this.registry.get('soundEnabled');
-                soundBg.setFillStyle(en ? 0x334466 : 0x553322);
-            })
+        // 10段階のバーグラフ（各セグメント幅22px, 間隔2px, 計240px）
+        const BAR_START = 520;
+        const volBars = [];
+        const updateBars = () => {
+            const v = getVol();
+            volBars.forEach((b, i) => {
+                b.setFillStyle(i < v / 10 ? 0x2288cc : 0x223344);
+            });
+        };
+        for (let i = 0; i < 10; i++) {
+            const bx = BAR_START + i * 24 + 11;
+            const bar = this.add.rectangle(bx, 485, 20, 30, 0x2288cc)
+                .setStrokeStyle(1, 0x446688);
+            volBars.push(bar);
+        }
+        updateBars();
+
+        minusBg
+            .on('pointerover', () => minusBg.setFillStyle(0x445577))
+            .on('pointerout',  () => minusBg.setFillStyle(0x334466))
             .on('pointerdown', () => {
-                const en = !this.registry.get('soundEnabled');
-                this.registry.set('soundEnabled', en);
-                soundTxt.setText(en ? '音量: ON' : '音量: OFF');
-                soundBg.setFillStyle(en ? 0x334466 : 0x553322);
+                setVol(Math.max(0, getVol() - 10));
+                volTxt.setText(`${getVol()}%`);
+                updateBars();
+            });
+        plusBg
+            .on('pointerover', () => plusBg.setFillStyle(0x445577))
+            .on('pointerout',  () => plusBg.setFillStyle(0x334466))
+            .on('pointerdown', () => {
+                setVol(Math.min(100, getVol() + 10));
+                volTxt.setText(`${getVol()}%`);
+                updateBars();
             });
 
         // ゲーム開始ボタン
